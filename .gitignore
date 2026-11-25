@@ -1,0 +1,6 @@
+# Local pack builder — not part of the public labs repo
+_builder/
+*.tmpwrite
+.DS_Store
+*.bak_*
+*.bak
