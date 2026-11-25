@@ -22,7 +22,7 @@ This repository currently publishes the Getting Started lab kit. Additional less
 - Folder: https://github.com/NEO-Fundamentals/labs/tree/main/getting-started/01_build-your-own-neo-lab
 - Zip (direct download): https://github.com/NEO-Fundamentals/labs/raw/main/getting-started/01_build-your-own-neo-lab.zip
 
-The zip SHA-256 is `622e57fb68bba5eb53721e1931966670650424560dd671d3c595e7d5cd102f25`. See `MANIFEST.tsv` for the file list and sanitize result.
+The zip SHA-256 is `244822b5e8b9422977682677e0f77a221062aac6f76dc93c0c3e90f5f8ed2e5d`. See `MANIFEST.tsv` for the file list and sanitize result.
 
 ## License
 

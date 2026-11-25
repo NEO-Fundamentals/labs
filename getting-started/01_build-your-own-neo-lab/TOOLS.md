@@ -1,6 +1,6 @@
 # Tools used by the NEO lesson packs
 
-All are free and installed by `scripts/bootstrap-ubuntu-2404.sh` from Ubuntu 24.04's own archive.
+All are free and installed by `scripts/bootstrap-ubuntu-2404.sh` from Ubuntu 24.04's own archive. You don't install any of them yourself: run the bootstrap once in the lab VM (README, step 5).
 
 | Tool (Ubuntu package) | What it does in the labs | Lesson packs that use it |
 |---|---|---|

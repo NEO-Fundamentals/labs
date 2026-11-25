@@ -4,13 +4,24 @@ This kit turns one free Ubuntu 24.04 virtual machine (VM) into the lab used acro
 
 Everything here is free. Every address is a private lab address (RFC 1918). Names are fictional. Run it only on a VM you own, never on a work or school network.
 
+## What you install, and what you run
+
+**In the lab VM, you download one zip and run two scripts. Don't install the kit files one by one.**
+
+1. `scripts/bootstrap-ubuntu-2404.sh` (run it once, step 5) sets up the lab and its tools inside the VM: every lab tool (tcpdump, tshark, FRR, nftables, Open vSwitch and the rest in `TOOLS.md`), the VM's own Wireshark (with `--gui`), capture rights for your user, the NEO_Diagnostics profile, and the `~/neo-lab/captures/` folder.
+2. `scripts/verify-lab.sh` (step 6) builds the check lab and makes your capture, inside the VM.
+
+The bootstrap reads `wireshark/NEO_Diagnostics_profile.zip` for you. `diagrams/`, `TOOLS.md` and this README are for reading.
+
+**On your own computer**, you install Wireshark (step 1) for real-world captures of your own traffic, and for opening saved captures such as the ones in each video's folder. The lab runs inside the VM, so its captures are made there, and Wireshark on your computer can't see inside the VM.
+
 ## Where everything lives
 
 | | Your own computer | The lab VM |
 |---|---|---|
-| Wireshark | You install it (step 1) and import the NEO profile (step 3) | The bootstrap installs it with `--gui` and loads the NEO profile (step 5) |
+| Wireshark | You install it for real-world captures (step 1) and import the NEO profile (step 3) | The bootstrap installs it with `--gui` and loads the NEO profile (step 5) |
 | This kit | The zip you download in step 2 (for the profile) | `~/01_build-your-own-neo-lab` (step 5) |
-| Captures | WSL2 and UTM Server: open them from here (step 7) | `~/neo-lab/captures/` (step 6) |
+| Lab captures | WSL2 and UTM Server: copy them here to open them (step 7) | Made here, in `~/neo-lab/captures/` (step 6) |
 
 Do the steps in order.
 
@@ -18,21 +29,21 @@ Do the steps in order.
 
 | Path | What it is |
 |---|---|
-| `scripts/bootstrap-ubuntu-2404.sh` | Installs every free tool the videos use, sets capture permissions, installs the NEO_Diagnostics profile |
-| `scripts/verify-lab.sh` | Builds a tiny check lab (two hosts and a router), captures a ping and a TCP handshake, and checks the result |
-| `wireshark/NEO_Diagnostics_profile.zip` | The Wireshark color profile used in the videos |
-| `diagrams/check-lab-topology.png` / `.svg` | The check lab's topology |
-| `TOOLS.md` | Which tools the lab files use |
+| `scripts/bootstrap-ubuntu-2404.sh` | **Run 1, in the VM.** Installs every free tool the videos use, sets capture permissions, installs the NEO_Diagnostics profile |
+| `scripts/verify-lab.sh` | **Run 2, in the VM.** Builds a tiny check lab (two hosts and a router), captures a ping and a TCP handshake, and checks the result |
+| `wireshark/NEO_Diagnostics_profile.zip` | The Wireshark color profile used in the videos. The bootstrap loads it in the VM; on your computer you import it (step 3) |
+| `diagrams/check-lab-topology.png` / `.svg` | The check lab's topology (to read) |
+| `TOOLS.md` | Which tools the bootstrap installs (to read) |
 
-## 1. On your computer: install Wireshark (free)
+## 1. On your computer: install Wireshark (free), for real-world captures
 
-Download it only from the official Download page: <https://www.wireshark.org/download.html>.
+Wireshark on your own computer captures your computer's real traffic and opens saved capture files. Download it only from the official Download page: <https://www.wireshark.org/download.html>.
 
-- **Windows:** run the Windows x64 (or Arm64) installer and keep the default choices. Leave **Install Npcap** ticked: Npcap is what lets Wireshark capture live traffic. Without it you can still open saved capture files.
-- **macOS:** open the macOS disk image and drag Wireshark to Applications. To capture live traffic, also open **Install ChmodBPF.pkg** from the same disk image.
+- **Windows:** run the Windows x64 (or Arm64) installer and keep the default choices. Leave **Install Npcap** ticked: Npcap is what lets Wireshark capture real traffic on your computer.
+- **macOS:** open the macOS disk image and drag Wireshark to Applications. Then open **Install ChmodBPF.pkg** from the same disk image, so Wireshark can capture real traffic on your Mac.
 - **Ubuntu desktop:** `sudo apt install wireshark`, answer **Yes** when asked whether non-superusers may capture, then `sudo usermod -aG wireshark $USER` and log out and back in.
 
-Opening saved capture files never needs capture permission. You only need it to capture live traffic.
+Opening saved capture files never needs capture permission. You only need it to capture live traffic on that computer. The lab doesn't use Npcap or ChmodBPF: its captures are made inside the VM (step 6), which Wireshark on your computer can't see into.
 
 ## 2. On your computer: download this kit
 
@@ -41,7 +52,7 @@ Download `01_build-your-own-neo-lab.zip` from the link in the video description,
 - **Windows:** right-click the zip → **Extract All…**
 - **macOS:** double-click the zip.
 
-You now have a `01_build-your-own-neo-lab` folder.
+You now have a `01_build-your-own-neo-lab` folder. On your computer you only use its profile (step 3). Nothing in it is installed or run on your computer; the scripts run in the VM.
 
 ## 3. On your computer: import the NEO_Diagnostics profile
 
@@ -94,6 +105,8 @@ sudo bash scripts/bootstrap-ubuntu-2404.sh --gui
 
 (`python3 -m zipfile -e` extracts the zip. It works on every 24.04 image, including the ones without `unzip`.)
 
+The bootstrap is the only install step. Don't install the kit files one by one: this one command sets up the lab and its tools inside the VM (every tool in `TOOLS.md`, the VM's Wireshark with `--gui`, capture rights, the NEO_Diagnostics profile, and `~/neo-lab/captures/`).
+
 On WSL2 and UTM Server, leave off `--gui`; you will open the captures with Wireshark on your computer instead (step 7). The script is safe to run again. With `--gui` it also installs Wireshark in the VM and loads the NEO_Diagnostics profile there. When it finishes, **log out and back in** (WSL2: close the Ubuntu window and open it again) so the capture permission takes effect.
 
 ## 6. In the VM: run the check lab
@@ -103,7 +116,7 @@ cd ~/01_build-your-own-neo-lab
 sudo bash scripts/verify-lab.sh
 ```
 
-It builds three namespaces (host A, router R1, host B), captures at host A, sends three pings and one short TCP connection, and prints a PASS or FAIL line for each check. It ends with `RESULT: PASS` and the name of the capture file, saved in `~/neo-lab/captures/`.
+It builds three namespaces (host A, router R1, host B) inside the VM, captures at host A, sends three pings and one short TCP connection, and prints a PASS or FAIL line for each check. It ends with `RESULT: PASS` and the name of the capture file, saved in `~/neo-lab/captures/`.
 
 The lab stays up so you can explore it, for example `sudo ip netns exec neo-a ping -c 2 172.16.100.20`. Remove it with `sudo bash scripts/verify-lab.sh --teardown`, or reboot the VM.
 
