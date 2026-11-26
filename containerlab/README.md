@@ -1,9 +1,11 @@
 # NEO Fundamentals labs (Containerlab kit)
 
-**Kit version:** 1.1.1  **Date:** 2026-11-26  **Status:** current
+**Kit version:** 1.1.2  **Date:** 2026-11-26  **Status:** current
 
 One download holds every lesson lab. Each video tells you which folder to open.
-You run the labs from **VS Code** inside your Ubuntu 24.04 lab VM. New to this? Follow the beginner guide (linked in the video description). It goes step by step with screenshots, from an empty computer to a running lab.
+You run the labs from **VS Code** inside your Ubuntu 24.04 lab VM. New to this? Follow the beginner guide: **NEO-Containerlab-Beginner-Guide.pdf** (this folder). It goes step by step with screenshots, from an empty computer to a running lab.
+
+**Beginner guide:** `NEO-Containerlab-Beginner-Guide.pdf` (this folder)
 
 ## Lesson index
 
@@ -40,6 +42,9 @@ New labs are added over time. Compare the **Kit version** line at the top of thi
 - Arista EOS and Juniper Junos are compared on screen in the videos only. This kit has no labs for them.
 
 ## CHANGELOG
+
+### 1.1.2 (2026-11-26)
+- Added the beginner guide PDF: `NEO-Containerlab-Beginner-Guide.pdf` (this folder).
 
 ### 1.1.1 (2026-11-26)
 - READMEs now mention the management IPv6 ULA prefix (`fd00:172:20:20::/64`) next to the RFC 1918 IPv4 addresses.
