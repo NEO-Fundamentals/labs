@@ -1,0 +1,22 @@
+set / interface ethernet-1/1 admin-state enable
+set / interface ethernet-1/1 description "WAN to edge-b"
+set / interface ethernet-1/1 subinterface 0 ipv4 admin-state enable
+set / interface ethernet-1/1 subinterface 0 ipv4 address 10.0.12.1/30
+set / interface ethernet-1/2 admin-state enable
+set / interface ethernet-1/2 description "Site A LAN"
+set / interface ethernet-1/2 subinterface 0 ipv4 admin-state enable
+set / interface ethernet-1/2 subinterface 0 ipv4 address 192.168.10.1/24
+set / network-instance default type default
+set / network-instance default interface ethernet-1/1.0
+set / network-instance default interface ethernet-1/2.0
+set / routing-policy prefix-set site-a-lan prefix 192.168.10.0/24 mask-length-range exact
+set / routing-policy policy export-site-a statement 10 match prefix prefix-set site-a-lan
+set / routing-policy policy export-site-a statement 10 action policy-result accept
+set / routing-policy policy accept-all default-action policy-result accept
+set / network-instance default protocols bgp autonomous-system 65201
+set / network-instance default protocols bgp router-id 10.255.0.1
+set / network-instance default protocols bgp afi-safi ipv4-unicast admin-state enable
+set / network-instance default protocols bgp group ebgp peer-as 65202
+set / network-instance default protocols bgp group ebgp export-policy [ export-site-a ]
+set / network-instance default protocols bgp group ebgp import-policy [ accept-all ]
+set / network-instance default protocols bgp neighbor 10.0.12.2 peer-group ebgp
