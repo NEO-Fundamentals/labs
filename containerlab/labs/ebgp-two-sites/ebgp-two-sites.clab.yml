@@ -1,0 +1,41 @@
+# NEO sample lab: two sites joined by eBGP. FREE version (no vendor account needed).
+# edge-a = Nokia SR Linux (free public image), edge-b = FRR (free, Cisco-style CLI).
+# All addresses are private: RFC 1918 IPv4, and a ULA (fd00::/8) IPv6 range for the management network.
+# AS numbers are private (64512-65534).
+name: ebgp-two-sites
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    edge-a:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:26.7.2
+      startup-config: configs/edge-a-srl.cli
+    edge-b:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      startup-config: configs/edge-b-frr.conf
+      daemons: [bgpd]
+    host-a:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+      exec:
+        - ip addr add 192.168.10.10/24 dev eth1
+        - ip route add 192.168.20.0/24 via 192.168.10.1
+        - ip route add 10.0.12.0/30 via 192.168.10.1
+    host-b:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+      exec:
+        - ip addr add 192.168.20.10/24 dev eth1
+        - ip route add 192.168.10.0/24 via 192.168.20.1
+        - ip route add 10.0.12.0/30 via 192.168.20.1
+
+  links:
+    - endpoints: ["edge-a:ethernet-1/1", "edge-b:eth1"]   # the WAN link, 10.0.12.0/30
+    - endpoints: ["edge-a:ethernet-1/2", "host-a:eth1"]   # site A LAN, 192.168.10.0/24
+    - endpoints: ["edge-b:eth2", "host-b:eth1"]           # site B LAN, 192.168.20.0/24
