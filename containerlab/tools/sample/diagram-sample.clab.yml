@@ -1,0 +1,51 @@
+# SAMPLE ONLY (never deployed): shows every diagram element neo_diagram.py supports.
+name: diagram-sample
+mgmt:
+  network: neo-sample-mgmt
+  ipv4-subnet: 172.20.30.0/24
+  ipv6-subnet: fd00:20:30::/64
+topology:
+  nodes:
+    client:   {kind: linux, image: ghcr.io/srl-labs/network-multitool:latest, labels: {graph-icon: host, graph-posX: 100, graph-posY: 100, graph-level: 1}}
+    sw1:      {kind: nokia_srlinux, image: ghcr.io/nokia/srlinux:26.7.2, labels: {graph-icon: switch, graph-posX: 300, graph-posY: 100, graph-level: 2}}
+    sw2:      {kind: nokia_srlinux, image: ghcr.io/nokia/srlinux:26.7.2, labels: {graph-icon: switch, graph-posX: 300, graph-posY: 400, graph-level: 2}}
+    fw:       {kind: linux, image: ghcr.io/srl-labs/network-multitool:latest, labels: {graph-icon: router, neo-role: firewall, graph-posX: 550, graph-posY: 100, graph-level: 3}}
+    lb:       {kind: linux, image: ghcr.io/srl-labs/network-multitool:latest, labels: {graph-icon: router, neo-role: load-balancer, graph-posX: 550, graph-posY: 400, graph-level: 3}}
+    web:      {kind: linux, image: ghcr.io/srl-labs/network-multitool:latest, labels: {graph-icon: host, neo-role: server, graph-posX: 800, graph-posY: 400, graph-level: 4}}
+    ids:      {kind: linux, image: ghcr.io/srl-labs/network-multitool:latest, labels: {graph-icon: host, neo-role: sensor, graph-posX: 800, graph-posY: 100, graph-level: 4}}
+  links:
+    - type: veth
+      endpoints:
+        - {node: client, interface: "eth1"}
+        - {node: sw1, interface: "ethernet-1/3"}
+      labels: {neo-net: "192.168.10.0/24"}
+    - type: veth
+      endpoints:
+        - {node: sw1, interface: "ethernet-1/1"}
+        - {node: sw2, interface: "ethernet-1/1"}
+      labels: {neo-lag: "LAG lag1"}
+    - type: veth
+      endpoints:
+        - {node: sw1, interface: "ethernet-1/2"}
+        - {node: sw2, interface: "ethernet-1/2"}
+      labels: {neo-lag: "LAG lag1"}
+    - type: veth
+      endpoints:
+        - {node: sw1, interface: "ethernet-1/4"}
+        - {node: fw, interface: "eth1"}
+      labels: {neo-net: "10.0.1.0/30", neo-capture: "fw:eth1"}
+    - type: veth
+      endpoints:
+        - {node: sw2, interface: "ethernet-1/4"}
+        - {node: lb, interface: "eth1"}
+      labels: {neo-net: "10.0.2.0/30"}
+    - type: veth
+      endpoints:
+        - {node: lb, interface: "eth2"}
+        - {node: web, interface: "eth1"}
+      labels: {neo-net: "192.168.20.0/24"}
+    - type: veth
+      endpoints:
+        - {node: fw, interface: "eth2"}
+        - {node: ids, interface: "eth1"}
+      labels: {neo-net: "10.0.3.0/30"}
