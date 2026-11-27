@@ -15,7 +15,7 @@ docker build -t ghcr.io/neo-fundamentals/neo-tools:1.0.0 .
 ./smoke-test.sh ghcr.io/neo-fundamentals/neo-tools:1.0.0
 docker push ghcr.io/neo-fundamentals/neo-tools:1.0.0
 ```
-Then set the package to public in GitHub (Packages > neo-tools > Package settings > Change visibility). Labs that use it say `image: ghcr.io/neo-fundamentals/neo-tools:1.0.0`. None of the labs in this kit need it yet.
+The image holds no SSH host keys (the Dockerfile deletes the ones the package makes at build time, and `neo-init` makes new ones when each container starts), and `smoke-test.sh` checks both that and that two containers get different keys. The GitHub Actions workflow `publish-neo-tools.yml` does the same four steps with the built-in token and refuses to overwrite an existing `1.0.0`; to change the image, raise the version. Then set the package to public in GitHub (Packages > neo-tools > Package settings > Change visibility). Labs that use it say `image: ghcr.io/neo-fundamentals/neo-tools:1.0.0`. Two labs in this kit use it (`ssh-sessions` and `multivendor-ssh-management`), so the image must be public before viewers deploy them.
 
 ## Lab-file labels (all valid in the Containerlab schema)
 
