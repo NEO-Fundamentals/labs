@@ -1,32 +1,54 @@
 # NEO Fundamentals labs (Containerlab kit)
 
-**Kit version:** 1.1.2  **Date:** 2026-11-26  **Status:** current
+**Kit version:** 1.1.3  **Date:** 2026-11-26  **Status:** current
 
 One download holds every lesson lab. Each video tells you which folder to open.
 You run the labs from **VS Code** inside your Ubuntu 24.04 lab VM. New to this? Follow the beginner guide: **NEO-Containerlab-Beginner-Guide.pdf** (this folder). It goes step by step with screenshots, from an empty computer to a running lab.
 
-**Beginner guide:** `NEO-Containerlab-Beginner-Guide.pdf` (this folder)
+**Beginner guide:** `NEO-Containerlab-Beginner-Guide.pdf` (this folder), guide version 1.3.2 for kit 1.1.3
 
 ## Lesson index
 
 | Lesson | Folder | What it builds | Images needed | Tested |
 |---|---|---|---|---|
-| NEO-48 Build Your Own NEO Lab | `labs/ebgp-two-sites/` | Two sites joined by eBGP: Nokia SR Linux (edge-a, AS 65201), FRR (edge-b, AS 65202), two Linux PCs | Free, downloaded automatically | Yes (Ubuntu 24.04, Containerlab 0.83.0, VS Code extension 0.27.0) |
+| NEO-48 Build Your Own NEO Lab | `labs/ebgp-two-sites/` | Two sites joined by eBGP: Nokia SR Linux (edge-a, AS 65201), FRR (edge-b, AS 65202), two Linux PCs | Free, downloaded automatically | Yes (Ubuntu 24.04, Containerlab 0.83.0, VS Code extension 0.28.0, Wireshark 4.2.2) |
 
 More lessons are added as new folders under `labs/`. This table and the CHANGELOG below list every change.
 
 ## How to start a lesson (short version)
 
-1. In VS Code, open the kit folder (**File > Open Folder** > `labs-main` > `containerlab`) and click **Trust**.
-2. Click the **Containerlab** icon on the left. Your lesson's `.clab.yml` file is under **Undeployed Local Labs**.
-3. Right-click it > **Deploy**. The first deploy downloads the router images (about 3 GB) and can take 5 to 15 minutes.
-4. Log in to a device: right-click it under **Running Labs** > **Access** > **Attach Shell**. (edge-a appears twice; the second one is an internal SR Linux helper, so ignore it.)
-5. **After you edit a config file**, restart the lab from VS Code's terminal (**Terminal > New Terminal**):
-   `cd ~/labs-main/containerlab/labs/<lesson-folder>` then `containerlab redeploy -c -t <lab-file>.clab.yml`
-   Don't use **Redeploy (Cleanup)** from the right-click menu; in our tests it closed VS Code.
-6. **Stop:** right-click the running lab > **Destroy**.
+Type or paste commands **one line at a time**. If the terminal shows `>` and waits, press **Ctrl+C** and paste the single line again.
 
-Wireshark capture: right-click an interface under a running device > **Capture With Wireshark**. You must be in the `wireshark` group (`sudo usermod -aG wireshark $USER`, then log out and back in).
+0. **Get the files:** on github.com/NEO-Fundamentals/labs click the green **Code** button > **Download ZIP** (not the older Getting Started ZIP linked lower on the front page). Extract `labs-main.zip` to your Home folder. This folder is then `~/labs-main/containerlab`.
+1. **Check Docker first** (after the setup and one log out / log in). This must work without `sudo`; a header line with no rows is a pass:
+   ```
+   docker ps
+   ```
+2. In VS Code, open the kit folder (**File > Open Folder** > `labs-main` > `containerlab`) and click **Trust**. Trust only this folder, not your whole Home folder.
+3. Click the **Containerlab** icon on the left. Your lesson's `.clab.yml` file is under **Undeployed Local Labs** (for NEO-48: `labs/ebgp-two-sites/ebgp-two-sites.clab.yml`).
+4. Right-click it > **Deploy**. The first deploy downloads the router images (about 3 GB) from the internet and can take 5 to 15 minutes. After that, lab traffic stays on the virtual links inside the VM. **Then wait about a minute** before you ping: green dots don't mean BGP is up yet. Checkpoint (in Ubuntu's Terminal): the line below must show `1` under State/PfxRcd for neighbor 10.0.12.1.
+   ```
+   docker exec clab-ebgp-two-sites-edge-b vtysh -c "show bgp summary"
+   ```
+5. Log in to a device: right-click it under **Running Labs** > **Access** > **Attach Shell**. (edge-a appears twice; the second one is an internal SR Linux helper, so ignore it.)
+6. **After you edit a config file**, restart the lab with a clean redeploy in VS Code's terminal (**Terminal > New Terminal**), one line at a time:
+   ```
+   cd ~/labs-main/containerlab/labs/<lesson-folder>
+   ```
+   ```
+   containerlab redeploy -c -t <lab-file>.clab.yml
+   ```
+   `-c` throws away the routers' saved configs so your edit is used. Don't use **Redeploy (Cleanup)** from the right-click menu; in our tests it closed VS Code.
+7. **After a VM restart** (Ubuntu shows the login screen first), check that every device has a green dot before anything else. edge-b (FRR) is always the one left stopped. Run `containerlab redeploy -t <lab-file>.clab.yml` (no `-c`) in the lab folder; that keeps the saved configs. It prints two long red `ERRO container ... edge-b exited` blocks first. That's expected; it still succeeds. Wait about a minute for BGP, then re-check.
+8. **Stop:** right-click the running lab > **Destroy**. Plain **Destroy** leaves the folder Containerlab generated for the lab (`clab-<lab-name>`, owned by root); **Destroy (Cleanup)** removes it. Your lab files and your capture files in Home stay either way.
+
+**Wireshark capture (main method): record to a file, then open it.** In Ubuntu's Terminal app (not VS Code), for example:
+```
+sudo containerlab capture --name ebgp-two-sites --target edge-b:eth1 --duration 45s -w - > "$HOME/neo-wan-test.pcapng"
+```
+The terminal stays quiet for 45 seconds; that's normal. While it runs, ping from a second Terminal window. Then open Wireshark, **File > Open...** > Home > `neo-wan-test.pcapng`, and filter on `icmp`: the file holds about 14 frames (ARP, BGP keepalives, LLDP and IPv6 router solicitation too), and the filter shows exactly the 6 pings. Use a new file name each time, and keep captures in Home, never inside the generated `clab-*` folder. You need the `wireshark` group (`sudo usermod -aG wireshark $USER`, then log out and back in).
+Optional shortcut: right-click an interface under a running device > **Capture With Wireshark**. On some systems the Wireshark window crashes at once (a GLib "antialiasing" error); if so, use the file method.
+
 Diagram: `containerlab graph --drawio -t <lab-file>.clab.yml`, then `sudo chown $USER:$USER <lab-file>.clab.drawio`, then click the `.drawio` file to edit it in Draw.io Integration.
 
 ## Getting the latest labs
@@ -42,6 +64,14 @@ New labs are added over time. Compare the **Kit version** line at the top of thi
 - Arista EOS and Juniper Junos are compared on screen in the videos only. This kit has no labs for them.
 
 ## CHANGELOG
+
+### 1.1.3 (2026-11-26)
+- Beginner guide 1.3.2 (`NEO-Containerlab-Beginner-Guide.pdf`), after a full beginner walkthrough on VirtualBox 7.2.22 with Containerlab 0.83.0, extension 0.28.0 and Wireshark 4.2.2:
+  - Wireshark: the main method now records to a file in Home (`containerlab capture ... --duration ... -w - > file`) and opens it in Wireshark. The right-click **Capture With Wireshark** is an optional shortcut (it can crash the viewer).
+  - New checks: `docker ps` without sudo before VS Code; all four devices after a VM restart, with `redeploy` without `-c` for recovery.
+  - Exact download steps (green Code > Download ZIP, `~/labs-main/containerlab`), trust only the lab folder, Destroy vs Destroy (Cleanup), one command per line.
+- Checked again step by step on a real VirtualBox VM: wait about a minute after Deploy (BGP checkpoint `1`); after a VM restart edge-b is always the stopped device and the recovery redeploy's red `ERRO` blocks are expected; plain Destroy leaves the root-owned `clab-<lab-name>` folder, Destroy (Cleanup) removes it; start the wrong-AS capture right after the clean redeploy (75 seconds is long enough to catch a retry). OPEN and NOTIFICATION lines repeat while the routers keep retrying; your count and times will differ.
+- This README and `labs/ebgp-two-sites/README.md` updated to match. Lab file and router configs unchanged.
 
 ### 1.1.2 (2026-11-26)
 - Added the beginner guide PDF: `NEO-Containerlab-Beginner-Guide.pdf` (this folder).
