@@ -1,0 +1,68 @@
+# NEO lab for "Routing tables and next hops": host-1 reaches host-2 through two routers, one hop at a time.
+# r1 = FRR router (free, Cisco-style CLI), r2 = Nokia SR Linux (free public image), hosts and sink = Linux containers.
+# r1 also has a wider route (10.2.0.0/16) toward "sink", a Linux box that does not forward, so a wrong
+# more-specific route can be shown to break one host while the rest of the subnet still works.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: routing-table-next-hop
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    host-1:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+      labels: {neo-note: "10.1.1.10, gw 10.1.1.1", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 200}
+      exec:
+        - ip addr add 10.1.1.10/24 dev eth1
+        - ip route add 10.0.0.0/8 via 10.1.1.1
+    r1:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, static routes", graph-icon: router, graph-level: 2, graph-posX: 350, graph-posY: 200}
+      startup-config: configs/r1-frr.conf
+    r2:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:26.7.2
+      labels: {neo-note: "SR Linux, static route back", graph-icon: router, graph-level: 3, graph-posX: 600, graph-posY: 200}
+      startup-config: configs/r2-srl.cli
+    host-2:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+      labels: {neo-note: "10.2.2.10, gw 10.2.2.1", graph-icon: host, graph-level: 4, graph-posX: 850, graph-posY: 200}
+      exec:
+        - ip addr add 10.2.2.10/24 dev eth1
+        - ip route add 10.0.0.0/8 via 10.2.2.1
+    sink:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+      labels: {neo-note: "10.0.99.2, does not forward", graph-icon: host, neo-role: server, graph-level: 3, graph-posX: 350, graph-posY: 400}
+      exec:
+        - ip addr add 10.0.99.2/30 dev eth1
+        - sysctl -q -w net.ipv4.ip_forward=0
+
+  links:
+    - type: veth  # host-1 LAN, 10.1.1.0/24
+      endpoints:
+        - {node: host-1, interface: eth1}
+        - {node: r1, interface: eth1}
+      labels: {neo-net: "10.1.1.0/24", neo-capture: "host-1:eth1"}
+    - type: veth  # transit link r1 - r2, 10.0.12.0/30
+      endpoints:
+        - {node: r1, interface: eth2}
+        - {node: r2, interface: ethernet-1/1}
+      labels: {neo-net: "10.0.12.0/30", neo-capture: "r1:eth2"}
+    - type: veth  # host-2 LAN, 10.2.2.0/24
+      endpoints:
+        - {node: r2, interface: ethernet-1/2}
+        - {node: host-2, interface: eth1}
+      labels: {neo-net: "10.2.2.0/24"}
+    - type: veth  # r1 - sink, 10.0.99.0/30
+      endpoints:
+        - {node: r1, interface: eth3}
+        - {node: sink, interface: eth1}
+      labels: {neo-net: "10.0.99.0/30"}
