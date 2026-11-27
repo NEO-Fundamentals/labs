@@ -1,0 +1,13 @@
+# sshd settings for the device. Keys only, no passwords, no root login.
+Port 22
+ListenAddress 192.168.50.1
+HostKey /etc/ssh/ssh_host_ed25519_key
+PermitRootLogin no
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+UsePAM no
+# VERBOSE writes each key that is offered or accepted to /var/log/sshd.log
+LogLevel VERBOSE
+PidFile /run/sshd.pid
