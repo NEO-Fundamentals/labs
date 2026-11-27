@@ -1,0 +1,5 @@
+configure terminal
+interface eth2
+ no shutdown
+exit
+end
