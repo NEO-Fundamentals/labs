@@ -19,9 +19,11 @@ RUN apt-get update \
       haproxy keepalived snmp snmpd python3 \
       strongswan-swanctl charon-systemd \
  && rm -rf /var/lib/apt/lists/* \
+ && rm -f /etc/ssh/ssh_host_* \
  && mkdir -p /run/sshd /srv/www
 
-# ssh host keys are made when each container starts, so no two lab containers share a key
+# The openssh-server package makes ssh host keys while the image is built; the rm above (same layer) deletes them.
+# neo-init makes new ones when each container starts, so no two lab containers share a key and no private key is in the image.
 COPY neo-init.sh /usr/local/bin/neo-init
 RUN chmod 0755 /usr/local/bin/neo-init
 ENTRYPOINT ["/usr/local/bin/neo-init"]
