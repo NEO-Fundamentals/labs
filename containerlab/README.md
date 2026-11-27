@@ -1,6 +1,6 @@
 # NEO Fundamentals labs (Containerlab kit)
 
-**Kit version:** 1.2.1  **Date:** 2026-11-26  **Status:** current
+**Kit version:** 1.2.2  **Date:** 2026-11-27  **Status:** current
 
 One download holds every lesson lab. Each video tells you which folder to open.
 You run the labs from **VS Code** inside your Ubuntu 24.04 lab VM. New to this? Follow the beginner guide: **NEO-Containerlab-Beginner-Guide.pdf** (this folder). It goes step by step with screenshots, from an empty computer to a running lab.
@@ -22,6 +22,10 @@ You run the labs from **VS Code** inside your Ubuntu 24.04 lab VM. New to this? 
 | NEO-03 Wireshark for troubleshooting | `labs/wireshark-practice/` | The same faults plus a DNS server, with a Wireshark color profile and a table of which filter finds which fault | Free, downloaded automatically | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0); the color-profile import was not tested |
 | NEO-05 IPv4 subnetting and CIDR | `labs/subnetting-gateway/` | Three hosts and an FRR router in two /26 subnets on one switch; same-subnet versus gateway delivery | Free, downloaded automatically | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0) |
 | NEO-34 Multi-vendor interface addressing and show commands | `labs/multivendor-interfaces/` | Two FRR routers on a /30: read address and state, then break it with a typo and a shutdown (Junos and EOS shown as text) | Free, downloaded automatically | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0) |
+| NEO-04 SSH: a secure session over TCP | `labs/ssh-sessions/` | An SSH client, an FRR router and an SSH server; six ways a login fails (refused, timeout, banner timeout, no matching key exchange, host key changed, wrong key) | Free, downloaded automatically (includes the NEO helper image `neo-tools`) | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0) |
+| NEO-09 Routing tables, longest-prefix match, ARP, and the next hop | `labs/routing-table-next-hop/` | Two hosts, an FRR router and an SR Linux router; read the tables, follow the next hop, break one host with a wrong /32 route | Free, downloaded automatically | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0) |
+| NEO-33 Multi-vendor SSH management | `labs/multivendor-ssh-management/` | A management host with strict host-key checking and a device with sshd (Junos and EOS shown as text) | Free, downloaded automatically (includes the NEO helper image `neo-tools`) | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0) |
+| NEO-37 Multi-vendor route tables | `labs/multivendor-route-tables/` | One FRR router with a /24, a more specific /25 and a default route (Junos and EOS shown as text) | Free, downloaded automatically | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0) |
 
 More lessons are added as new folders under `labs/`. [LABS.md](LABS.md) and the CHANGELOG below list every change. Each lab's README has **Before you start**, **Troubleshooting** and **Cleanup** sections.
 
@@ -70,10 +74,15 @@ New labs are added over time. Compare the **Kit version** line at the top of thi
 ## Rules for this kit
 
 - Lab addresses are private only: IPv4 from RFC 1918 (such as 10.x and 192.168.x), management IPv6 from the private ULA range fd00::/8 (the lab uses fd00:172:20:20::/64), and AS numbers from the private ranges 64512-65534 and 4200000000-4294967294. The documentation ranges (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24, 2001:db8::/32, 3fff::/20) are never used.
-- No vendor software is stored here. Every lab uses only free public images (Nokia SR Linux, FRR, network-multitool), which download from the vendors' public registries the first time you deploy. No vendor account is needed.
+- No vendor software is stored here. Every lab uses only free public images (Nokia SR Linux, FRR, network-multitool and the NEO helper image neo-tools), which download from the vendors' public registries the first time you deploy. No vendor account is needed.
 - Arista EOS and Juniper Junos are compared on screen in the videos only. This kit has no labs for them.
 
 ## CHANGELOG
+
+### 1.2.2 (2026-11-27)
+- Four more labs: `ssh-sessions` (NEO-04), `routing-table-next-hop` (NEO-09), `multivendor-ssh-management` (NEO-33) and `multivendor-route-tables` (NEO-37). Each is a self-contained folder with the lab file, diagram, configs, scripts, sample captures and a README. They were tested on a VirtualBox VM with real sample captures.
+- The two SSH labs use the NEO helper image `ghcr.io/neo-fundamentals/neo-tools:1.0.0` for the SSH server; it downloads automatically on Deploy, like the other images.
+- [LABS.md](LABS.md) and the lesson index list thirteen labs, and LABS.md has a lesson map by lesson number. The beginner guide is unchanged (1.3.3).
 
 ### 1.2.1 (2026-11-26)
 - Four more labs: `tcp-troubleshooting` (NEO-02), `wireshark-practice` (NEO-03), `subnetting-gateway` (NEO-05) and `multivendor-interfaces` (NEO-34). They were tested on a VirtualBox VM with real sample captures. The Wireshark color-profile import (`wireshark-practice/wireshark/NEO_Diagnostics_profile.zip`) was not tested in the Wireshark window.
