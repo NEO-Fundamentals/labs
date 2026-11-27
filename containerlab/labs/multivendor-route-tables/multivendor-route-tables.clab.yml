@@ -1,0 +1,41 @@
+# NEO lab for "Multi-vendor route tables": one router (r1) with two next-hop routers, read with FRR show commands
+# and the Linux kernel table. r1, r2 and r3 = FRR routers (free, Cisco-style CLI). Junos and EOS appear as text only.
+# r2 and r3 each hold one destination address on their loopback, so r1's static routes have something to reach.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: multivendor-route-tables
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    r1:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, three static routes", graph-icon: router, graph-level: 1, graph-posX: 200, graph-posY: 300}
+      startup-config: configs/r1-frr.conf
+    r2:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, lo 10.100.0.10", graph-icon: router, graph-level: 2, graph-posX: 550, graph-posY: 150}
+      startup-config: configs/r2-frr.conf
+    r3:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, lo 10.100.0.130", graph-icon: router, graph-level: 2, graph-posX: 550, graph-posY: 450}
+      startup-config: configs/r3-frr.conf
+
+  links:
+    - type: veth  # r1 - r2, 10.0.12.0/30
+      endpoints:
+        - {node: r1, interface: eth1}
+        - {node: r2, interface: eth1}
+      labels: {neo-net: "10.0.12.0/30", neo-capture: "r1:eth1"}
+    - type: veth  # r1 - r3, 10.0.13.0/30
+      endpoints:
+        - {node: r1, interface: eth2}
+        - {node: r3, interface: eth1}
+      labels: {neo-net: "10.0.13.0/30", neo-capture: "r1:eth2"}
