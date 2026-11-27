@@ -1,0 +1,73 @@
+# NEO lab for "BGP: What It Is, eBGP and iBGP, and Path Choice".
+# AS 65201 (edge-a, SR Linux) peers by eBGP with both routers of AS 65202 (edge-b1 and edge-b2, FRR),
+# and edge-b1 and edge-b2 peer with each other by iBGP. edge-a therefore hears about 192.168.20.0/24 twice and must choose.
+# All addresses are private: RFC 1918 IPv4, and a ULA (fd00::/8) IPv6 range for the management network.
+# AS numbers are private (64512-65534).
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: bgp-ebgp-ibgp-path-choice
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    edge-a:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:26.7.2
+      labels: {neo-note: "SR Linux, AS 65201", graph-icon: router, graph-level: 2, graph-posX: 350, graph-posY: 250}
+      startup-config: configs/edge-a-srl.cli
+    edge-b1:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, AS 65202", graph-icon: router, graph-level: 3, graph-posX: 650, graph-posY: 80}
+      startup-config: configs/edge-b1-frr.conf
+      daemons: [bgpd]
+    edge-b2:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, AS 65202", graph-icon: router, graph-level: 3, graph-posX: 650, graph-posY: 420}
+      startup-config: configs/edge-b2-frr.conf
+      daemons: [bgpd]
+    host-a:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+      labels: {neo-note: "192.168.10.10", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 250}
+      exec:
+        - ip addr add 192.168.10.10/24 dev eth1
+        - ip route add 192.168.20.0/24 via 192.168.10.1
+    host-b:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+      labels: {neo-note: "192.168.20.10", graph-icon: host, graph-level: 4, graph-posX: 950, graph-posY: 420}
+      exec:
+        - ip addr add 192.168.20.10/24 dev eth1
+        - ip route add 192.168.10.0/24 via 192.168.20.1
+
+  links:
+    - type: veth  # eBGP link 1, 10.0.12.0/30
+      endpoints:
+        - {node: edge-a, interface: ethernet-1/1}
+        - {node: edge-b1, interface: eth1}
+      labels: {neo-net: "10.0.12.0/30"}
+    - type: veth  # eBGP link 2, 10.0.13.0/30
+      endpoints:
+        - {node: edge-a, interface: ethernet-1/3}
+        - {node: edge-b2, interface: eth1}
+      labels: {neo-net: "10.0.13.0/30"}
+    - type: veth  # iBGP link inside AS 65202, 10.0.23.0/30
+      endpoints:
+        - {node: edge-b1, interface: eth2}
+        - {node: edge-b2, interface: eth2}
+      labels: {neo-net: "10.0.23.0/30 (iBGP)", neo-capture: "edge-b1:eth2"}
+    - type: veth  # site A LAN, 192.168.10.0/24
+      endpoints:
+        - {node: edge-a, interface: ethernet-1/2}
+        - {node: host-a, interface: eth1}
+      labels: {neo-net: "192.168.10.0/24"}
+    - type: veth  # site B LAN, 192.168.20.0/24
+      endpoints:
+        - {node: edge-b2, interface: eth3}
+        - {node: host-b, interface: eth1}
+      labels: {neo-net: "192.168.20.0/24"}
