@@ -1,0 +1,4 @@
+configure terminal
+interface eth1
+no shutdown
+end

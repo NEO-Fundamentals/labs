@@ -1,0 +1,5 @@
+configure terminal
+interface eth1
+no ip address 10.0.2.2/30
+ip address 10.0.2.6/30
+end

@@ -1,0 +1,40 @@
+# NEO lab for "Multi-vendor interfaces": two FRR routers on one /30 link, to read interface address and state.
+# l and r = FRR routers (free public image). l's second port (eth2) goes to a spare host and starts shut down.
+# Junos and EOS appear only as text in the README; they are not run here.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+name: multivendor-interfaces
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    l:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "10.0.2.1/30, router L", graph-icon: router, graph-level: 1, graph-posX: 150, graph-posY: 150}
+      startup-config: configs/l-frr.conf
+    r:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "10.0.2.2/30, router R", graph-icon: router, graph-level: 2, graph-posX: 500, graph-posY: 150}
+      startup-config: configs/r-frr.conf
+    spare:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+      labels: {neo-note: "far end of L's spare port", graph-icon: host, graph-level: 2, graph-posX: 150, graph-posY: 350}
+      cmd: sleep infinity
+
+  links:
+    - type: veth  # the link under test, 10.0.2.0/30
+      endpoints:
+        - {node: l, interface: eth1}
+        - {node: r, interface: eth1}
+      labels: {neo-net: "10.0.2.0/30", neo-capture: "l:eth1"}
+    - type: veth  # a spare port, shut down on l
+      endpoints:
+        - {node: l, interface: eth2}
+        - {node: spare, interface: eth1}
+      labels: {neo-net: "10.0.3.0/24, shut"}
