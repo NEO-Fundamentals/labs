@@ -1,0 +1,53 @@
+# NEO lab for "SSH sessions": host-a opens SSH sessions to host-b through one router, then each of the
+# six checkpoints (TCP, banner, key exchange, host key, user authentication, session) is broken on purpose.
+# host-a = Linux container with the OpenSSH client, r1 = FRR router (free), host-b = neo-tools (Debian with the OpenSSH server).
+# No passwords: host-a logs in with a key that scripts/setup-keys.sh makes after Deploy. No private key is stored in this folder.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: ssh-sessions
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    host-a:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+      labels: {neo-note: "10.0.2.10, SSH client", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 200}
+      exec:
+        - ip addr add 10.0.2.10/24 dev eth1
+        - ip route add 172.16.100.0/24 via 10.0.2.1
+    r1:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, routes only", graph-icon: router, graph-level: 2, graph-posX: 350, graph-posY: 200}
+      startup-config: configs/r1-frr.conf
+    host-b:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "172.16.100.20, sshd port 22", graph-icon: host, neo-role: server, graph-level: 3, graph-posX: 600, graph-posY: 200}
+      binds:
+        - configs/host-b/sshd_config:/etc/neo/sshd_config:ro
+        - scripts/silent-listener.py:/neo/silent-listener.py:ro
+      exec:
+        - ip addr add 172.16.100.20/24 dev eth1
+        - ip route add 10.0.2.0/24 via 172.16.100.1
+        - useradd -m -s /bin/bash -p '*' labuser
+        - install -d -m 700 -o labuser -g labuser /home/labuser/.ssh
+        - flock /run/neo-keygen.lock ssh-keygen -A     # waits until this container's host keys exist (the image makes them at start and holds none), so sshd below always finds them
+        - /usr/sbin/sshd -f /etc/neo/sshd_config -E /var/log/sshd.log
+
+  links:
+    - type: veth  # host-a LAN, 10.0.2.0/24
+      endpoints:
+        - {node: host-a, interface: eth1}
+        - {node: r1, interface: eth1}
+      labels: {neo-net: "10.0.2.0/24", neo-capture: "host-a:eth1"}
+    - type: veth  # host-b LAN, 172.16.100.0/24
+      endpoints:
+        - {node: r1, interface: eth2}
+        - {node: host-b, interface: eth1}
+      labels: {neo-net: "172.16.100.0/24"}
