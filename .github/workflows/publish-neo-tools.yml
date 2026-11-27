@@ -1,0 +1,91 @@
+# Builds the NEO helper image from containerlab/tools/neo-tools/ and publishes ghcr.io/neo-fundamentals/neo-tools:1.0.0.
+# Run it by hand: Actions tab > "Publish neo-tools" > Run workflow. It never runs by itself.
+# It uses only the built-in GITHUB_TOKEN (no personal access token and no stored secret).
+# It never overwrites a published tag: if 1.0.0 already exists on ghcr.io the run stops with an error before building.
+# To change the image, raise VERSION below (and the image: lines in the lab files) instead of re-pushing 1.0.0.
+# Before the first run, the default branch must already contain the fixed neo-tools files
+# (Dockerfile deletes build-time SSH host keys; neo-init makes them at container start;
+# smoke-test.sh checks that the image holds none and that two containers get different keys).
+# Do not add this workflow to a tree that still has the 1.2.1 neo-tools files: the first run
+# would publish that image as 1.0.0, and the guard would then refuse to overwrite it.
+# First run: after it pushes, set the package public once:
+#   github.com/orgs/NEO-Fundamentals/packages > neo-tools > Package settings > Change visibility > Public
+# (an organization must also allow public packages: Organization settings > Packages).
+# Then run the workflow again with "check_only" ticked: it builds and pushes nothing and only checks an anonymous pull.
+name: Publish neo-tools
+
+on:
+  workflow_dispatch:
+    inputs:
+      check_only:
+        description: "Only check that the existing image can be pulled without logging in (no build, no push)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/neo-fundamentals/neo-tools
+  VERSION: "1.0.0"
+  CONTEXT: containerlab/tools/neo-tools
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        if: ${{ !inputs.check_only }}
+        uses: actions/checkout@v6
+
+      - name: Refuse to overwrite an existing tag
+        id: guard
+        if: ${{ !inputs.check_only }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # ghcr.io accepts the token, base64-encoded, as a bearer token. 200 = the tag exists, 404 = it does not.
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $(printf '%s' "$GH_TOKEN" | base64 -w0)" \
+            -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json" \
+            "https://ghcr.io/v2/neo-fundamentals/neo-tools/manifests/$VERSION")
+          case "$code" in
+            404) echo "No $IMAGE:$VERSION yet. This run will publish it." ;;
+            200) echo "::error::$IMAGE:$VERSION already exists. Not overwriting a published tag. To check public access, run this workflow again with check_only ticked. To publish a change, raise VERSION in this file and in the lab files."; exit 1 ;;
+            *)   echo "::error::Could not tell whether $IMAGE:$VERSION exists (HTTP $code). Stopping so that nothing is overwritten."; exit 1 ;;
+          esac
+
+      - name: Build the image
+        if: ${{ !inputs.check_only }}
+        run: |
+          docker build \
+            --label org.opencontainers.image.source=https://github.com/${{ github.repository }} \
+            --label org.opencontainers.image.revision=${{ github.sha }} \
+            -t "$IMAGE:$VERSION" "$CONTEXT"
+
+      - name: Smoke test (every tool the labs use is present; no host keys in the image; nftables, dnsmasq, sshd and haproxy run)
+        if: ${{ !inputs.check_only }}
+        run: bash "$CONTEXT/smoke-test.sh" "$IMAGE:$VERSION"
+
+      - name: Log in to ghcr.io with the built-in token
+        if: ${{ !inputs.check_only }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Push
+        if: ${{ !inputs.check_only }}
+        run: docker push "$IMAGE:$VERSION"
+
+      - name: Check that an anonymous pull works (the package must be public)
+        run: |
+          docker logout ghcr.io || true
+          docker image rm "$IMAGE:$VERSION" 2>/dev/null || true
+          if docker pull "$IMAGE:$VERSION"; then
+            echo "Anonymous pull works: the image is public."
+          else
+            echo "::warning::An anonymous pull failed. If the image was just pushed, set the package to Public (Package settings > Change visibility), then run this workflow again with check_only ticked. It does not rebuild or push."
+            exit 1
+          fi
