@@ -1,19 +1,29 @@
 # NEO Fundamentals labs (Containerlab kit)
 
-**Kit version:** 1.1.3  **Date:** 2026-11-26  **Status:** current
+**Kit version:** 1.2.1  **Date:** 2026-11-26  **Status:** current
 
 One download holds every lesson lab. Each video tells you which folder to open.
 You run the labs from **VS Code** inside your Ubuntu 24.04 lab VM. New to this? Follow the beginner guide: **NEO-Containerlab-Beginner-Guide.pdf** (this folder). It goes step by step with screenshots, from an empty computer to a running lab.
 
-**Beginner guide:** `NEO-Containerlab-Beginner-Guide.pdf` (this folder), guide version 1.3.2 for kit 1.1.3
+**Beginner guide:** `NEO-Containerlab-Beginner-Guide.pdf` (this folder), guide version 1.3.3 for kit 1.2.0 (applies to later 1.2.x kits)
+
+**All labs:** see [LABS.md](LABS.md) for the list with a one-line description of each, or the table below.
 
 ## Lesson index
 
 | Lesson | Folder | What it builds | Images needed | Tested |
 |---|---|---|---|---|
 | NEO-48 Build Your Own NEO Lab | `labs/ebgp-two-sites/` | Two sites joined by eBGP: Nokia SR Linux (edge-a, AS 65201), FRR (edge-b, AS 65202), two Linux PCs | Free, downloaded automatically | Yes (Ubuntu 24.04, Containerlab 0.83.0, VS Code extension 0.28.0, Wireshark 4.2.2) |
+| NEO-01 TCP Basics | `labs/tcp-basics/` | A client, an FRR router and a server: a TCP connection that works, one that is refused and one that is silently dropped | Free, downloaded automatically | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0) |
+| NEO-45 The OSI Model | `labs/osi-http-capture/` | A PC loads a web page by name through one router (DNS and HTTP); capture it and find each layer | Free, downloaded automatically | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0) |
+| NEO-11 BGP: What It Is, eBGP and iBGP, and Path Choice | `labs/bgp-ebgp-ibgp-path-choice/` | SR Linux (AS 65201) peers with two FRR routers (AS 65202) that also peer with each other; see why one path wins | Free, downloaded automatically | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0) |
+| NEO-32 Multi-vendor eBGP | `labs/multivendor-ebgp/` | The same eBGP session on SR Linux and FRR side by side (Arista EOS and Juniper Junos shown as text) | Free, downloaded automatically | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0) |
+| NEO-02 TCP Troubleshooting | `labs/tcp-troubleshooting/` | Six TCP faults you switch on and off: silent drop, refused, packet loss, zero window, MTU black hole, reset in the middle | Free, downloaded automatically | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0) |
+| NEO-03 Wireshark for troubleshooting | `labs/wireshark-practice/` | The same faults plus a DNS server, with a Wireshark color profile and a table of which filter finds which fault | Free, downloaded automatically | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0); the color-profile import was not tested |
+| NEO-05 IPv4 subnetting and CIDR | `labs/subnetting-gateway/` | Three hosts and an FRR router in two /26 subnets on one switch; same-subnet versus gateway delivery | Free, downloaded automatically | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0) |
+| NEO-34 Multi-vendor interface addressing and show commands | `labs/multivendor-interfaces/` | Two FRR routers on a /30: read address and state, then break it with a typo and a shutdown (Junos and EOS shown as text) | Free, downloaded automatically | Yes (VirtualBox VM, Ubuntu 24.04, Containerlab 0.83.0) |
 
-More lessons are added as new folders under `labs/`. This table and the CHANGELOG below list every change.
+More lessons are added as new folders under `labs/`. [LABS.md](LABS.md) and the CHANGELOG below list every change. Each lab's README has **Before you start**, **Troubleshooting** and **Cleanup** sections.
 
 ## How to start a lesson (short version)
 
@@ -59,11 +69,23 @@ New labs are added over time. Compare the **Kit version** line at the top of thi
 
 ## Rules for this kit
 
-- Lab addresses are private only: IPv4 from RFC 1918 (such as 10.x and 192.168.x), management IPv6 from the private ULA range fd00::/8 (the lab uses fd00:172:20:20::/64), and AS numbers from the private range 64512-65534.
+- Lab addresses are private only: IPv4 from RFC 1918 (such as 10.x and 192.168.x), management IPv6 from the private ULA range fd00::/8 (the lab uses fd00:172:20:20::/64), and AS numbers from the private ranges 64512-65534 and 4200000000-4294967294. The documentation ranges (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24, 2001:db8::/32, 3fff::/20) are never used.
 - No vendor software is stored here. Every lab uses only free public images (Nokia SR Linux, FRR, network-multitool), which download from the vendors' public registries the first time you deploy. No vendor account is needed.
 - Arista EOS and Juniper Junos are compared on screen in the videos only. This kit has no labs for them.
 
 ## CHANGELOG
+
+### 1.2.1 (2026-11-26)
+- Four more labs: `tcp-troubleshooting` (NEO-02), `wireshark-practice` (NEO-03), `subnetting-gateway` (NEO-05) and `multivendor-interfaces` (NEO-34). They were tested on a VirtualBox VM with real sample captures. The Wireshark color-profile import (`wireshark-practice/wireshark/NEO_Diagnostics_profile.zip`) was not tested in the Wireshark window.
+- [LABS.md](LABS.md) and the lesson index list nine labs. The beginner guide is unchanged (1.3.3).
+
+### 1.2.0 (2026-11-26)
+- Four new labs, each a self-contained folder under `labs/` (lab file, diagram, configs, scripts, sample captures and README): `tcp-basics` (NEO-01), `osi-http-capture` (NEO-45), `bgp-ebgp-ibgp-path-choice` (NEO-11) and `multivendor-ebgp` (NEO-32). [LABS.md](LABS.md) lists them.
+- `labs/ebgp-two-sites` 1.1.4: diagram labels were added to the lab file so hosts draw as hosts and the diagram files are prepared. Nodes, addresses, links and configs unchanged. 1.1.5: README only. The BGP keepalive in exercise E4 is now "about every 30 s" (hold time 90 s, keepalive one third of it); the old text said about 60 s. A sample capture, `captures/ebgp-keepalive.pcapng`, shows it.
+- Every lab README now has **Before you start**, **Troubleshooting** (lab-specific failures and fixes) and **Cleanup** (`containerlab destroy --cleanup`). Each lab has a prepared `.drawio` and `.png` diagram; port labels now show the full interface name (for example `ethernet-1/1`) at 11 px or larger, and no label or link sits on top of another.
+- New `tools/` folder for lab authors: `neo_diagram.py` (makes the diagram), `neo_lint.py` (checks a lab: Containerlab schema, private IPv4 only, private AS numbers, `fd00::/8` management IPv6, documentation ranges rejected), a sample, and the optional helper image `neo-tools`.
+- Beginner guide 1.3.3: the keepalive text in the optional exercises ("about every 30 seconds") is corrected. Nothing else in the guide changed.
+- AS numbers accepted in the kit rules now include 4200000000-4294967294; documentation address ranges are named as not allowed.
 
 ### 1.1.3 (2026-11-26)
 - Beginner guide 1.3.2 (`NEO-Containerlab-Beginner-Guide.pdf`), after a full beginner walkthrough on VirtualBox 7.2.22 with Containerlab 0.83.0, extension 0.28.0 and Wireshark 4.2.2:
