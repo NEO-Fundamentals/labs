@@ -1,0 +1,3 @@
+; The lab's root hints: where the resolver starts. The real Internet uses 13 root server names here.
+.                       3600000 IN NS  ns.root-servers.internal.
+ns.root-servers.internal. 3600000 IN A 10.6.0.2

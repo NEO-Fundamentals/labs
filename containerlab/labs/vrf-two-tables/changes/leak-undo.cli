@@ -1,0 +1,4 @@
+enter candidate
+delete / network-instance alpha inter-instance-policies
+delete / network-instance beta inter-instance-policies
+commit now

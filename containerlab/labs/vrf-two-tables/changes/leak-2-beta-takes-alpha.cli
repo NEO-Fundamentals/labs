@@ -1,0 +1,3 @@
+enter candidate
+set / network-instance beta inter-instance-policies apply-policy import-policy [ alpha-hosts-only ]
+commit now

@@ -1,0 +1,57 @@
+# NEO lab for "VRFs: separate routing tables on one device": one router, two routing tables (VRFs), three hosts.
+# r1 = Nokia SR Linux (free public image). On SR Linux a VRF is a network-instance of type ip-vrf.
+# h1 and h2 sit in VRF alpha, h3 sits in VRF beta. h1 reaches h2, but nobody in alpha reaches h3 until you leak routes.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: vrf-two-tables
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    h1:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "VRF alpha, 10.12.1.10, gw 10.12.1.1", graph-icon: host, graph-level: 1, graph-posX: 80, graph-posY: 80}
+      exec:
+        - ip addr add 10.12.1.10/24 dev eth1
+        - ip route add 10.12.0.0/16 via 10.12.1.1
+    h2:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "VRF alpha, 10.12.2.10, gw 10.12.2.1", graph-icon: host, graph-level: 1, graph-posX: 80, graph-posY: 380}
+      exec:
+        - ip addr add 10.12.2.10/24 dev eth1
+        - ip route add 10.12.0.0/16 via 10.12.2.1
+    r1:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:26.7.2
+      labels: {neo-note: "SR Linux, VRFs alpha and beta", graph-icon: router, graph-level: 2, graph-posX: 450, graph-posY: 230}
+      startup-config: configs/r1-srl.cli
+    h3:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "VRF beta, 10.12.3.10, gw 10.12.3.1", graph-icon: host, graph-level: 3, graph-posX: 820, graph-posY: 230}
+      exec:
+        - ip addr add 10.12.3.10/24 dev eth1
+        - ip route add 10.12.0.0/16 via 10.12.3.1
+
+  links:
+    - type: veth  # h1 LAN, VRF alpha, 10.12.1.0/24
+      endpoints:
+        - {node: h1, interface: eth1}
+        - {node: r1, interface: ethernet-1/1}
+      labels: {neo-net: "10.12.1.0/24 (alpha)", neo-capture: "h1:eth1"}
+    - type: veth  # h2 LAN, VRF alpha, 10.12.2.0/24
+      endpoints:
+        - {node: h2, interface: eth1}
+        - {node: r1, interface: ethernet-1/2}
+      labels: {neo-net: "10.12.2.0/24 (alpha)"}
+    - type: veth  # h3 LAN, VRF beta, 10.12.3.0/24
+      endpoints:
+        - {node: r1, interface: ethernet-1/3}
+        - {node: h3, interface: eth1}
+      labels: {neo-net: "10.12.3.0/24 (beta)", neo-capture: "h3:eth1"}

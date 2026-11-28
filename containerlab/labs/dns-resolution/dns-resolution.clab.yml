@@ -1,0 +1,86 @@
+# NEO lab for "DNS for network engineers": a client asks a recursive resolver, and the resolver walks the
+# DNS tree itself: root server, then the TLD server for "internal.", then the authoritative server for "corp.internal.".
+# All four DNS servers run BIND 9.20 from ISC's official public image; the client is the NEO helper image (dig, ping).
+# The names use the private-use top-level domain "internal." and a private root, so nothing here touches the real Internet DNS.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: dns-resolution
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    client:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.6.1.10, asks the resolver", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 480}
+      exec:
+        - ip addr add 10.6.1.10/24 dev eth1
+        - sh -c 'echo "nameserver 10.6.1.53" > /etc/resolv.conf'
+    resolver:
+      kind: linux
+      image: internetsystemsconsortium/bind9:9.20
+      cmd: -g -c /etc/bind/named.conf
+      binds:
+        - configs/resolver/named.conf:/etc/bind/named.conf:ro
+        - configs/resolver/root.hints:/etc/bind/root.hints:ro
+      labels: {neo-note: "10.6.1.53, recursive", graph-icon: host, neo-role: server, graph-level: 2, graph-posX: 420, graph-posY: 480}
+      exec:
+        - ip addr add 10.6.1.53/24 dev eth1
+        - ip addr add 10.6.0.1/30 dev eth2
+        - ip addr add 10.6.0.5/30 dev eth3
+        - ip addr add 10.6.0.9/30 dev eth4
+        # a control key made inside this container (none is stored in the lab), so "rndc flush" can empty the cache
+        - sh -c 'rndc-confgen -a -u bind >/dev/null 2>&1 && kill -HUP 1'
+    root:
+      kind: linux
+      image: internetsystemsconsortium/bind9:9.20
+      cmd: -g -c /etc/bind/named.conf
+      binds:
+        - configs/root:/etc/bind:ro
+      labels: {neo-note: "10.6.0.2, root zone", graph-icon: host, neo-role: server, graph-level: 3, graph-posX: 850, graph-posY: 80}
+      exec:
+        - ip addr add 10.6.0.2/30 dev eth1
+    tld:
+      kind: linux
+      image: internetsystemsconsortium/bind9:9.20
+      cmd: -g -c /etc/bind/named.conf
+      binds:
+        - configs/tld:/etc/bind:ro
+      labels: {neo-note: "10.6.0.6, zone internal.", graph-icon: host, neo-role: server, graph-level: 3, graph-posX: 850, graph-posY: 280}
+      exec:
+        - ip addr add 10.6.0.6/30 dev eth1
+    auth:
+      kind: linux
+      image: internetsystemsconsortium/bind9:9.20
+      cmd: -g -c /etc/bind/named.conf
+      binds:
+        - configs/auth:/etc/bind:ro
+      labels: {neo-note: "10.6.0.10, zone corp.internal.", graph-icon: host, neo-role: server, graph-level: 3, graph-posX: 850, graph-posY: 480}
+      exec:
+        - ip addr add 10.6.0.10/30 dev eth1
+
+  links:
+    - type: veth  # client LAN, 10.6.1.0/24
+      endpoints:
+        - {node: client, interface: eth1}
+        - {node: resolver, interface: eth1}
+      labels: {neo-net: "10.6.1.0/24", neo-capture: "resolver:eth1"}
+    - type: veth  # resolver - root, 10.6.0.0/30
+      endpoints:
+        - {node: resolver, interface: eth2}
+        - {node: root, interface: eth1}
+      labels: {neo-net: "10.6.0.0/30", neo-capture: "resolver:eth2"}
+    - type: veth  # resolver - tld, 10.6.0.4/30
+      endpoints:
+        - {node: resolver, interface: eth3}
+        - {node: tld, interface: eth1}
+      labels: {neo-net: "10.6.0.4/30", neo-capture: "resolver:eth3"}
+    - type: veth  # resolver - auth, 10.6.0.8/30
+      endpoints:
+        - {node: resolver, interface: eth4}
+        - {node: auth, interface: eth1}
+      labels: {neo-net: "10.6.0.8/30", neo-capture: "resolver:eth4"}

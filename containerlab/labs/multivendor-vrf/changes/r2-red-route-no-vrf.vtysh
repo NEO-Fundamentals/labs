@@ -1,0 +1,6 @@
+configure terminal
+vrf RED
+ no ip route 10.39.100.0/24 10.39.12.1
+exit-vrf
+ip route 10.39.100.0/24 10.39.12.1
+end

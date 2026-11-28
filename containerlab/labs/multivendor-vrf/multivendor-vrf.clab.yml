@@ -1,0 +1,104 @@
+# NEO lab for "Multi-vendor VRFs": the same two VRFs, RED and BLUE, on two systems.
+# r1 = Nokia SR Linux (free public image): each VRF is a network-instance of type ip-vrf.
+# r2 = FRR (free, Cisco-style CLI) on Linux: each VRF is a Linux VRF device (a separate kernel table), made at deploy.
+# site-a and site-b use the SAME addresses (10.39.100.0/24), and so do site-c and site-d (10.39.200.0/24).
+# The two r1 - r2 links even use the same /30. Only the VRFs keep RED (a, c) and BLUE (b, d) apart.
+# Linux VRF devices need the kernel's vrf module; the NEO lab VM (Ubuntu 24.04) has it.
+# Each site's web page (port 80) answers with its own name, so you can see which site a request reached.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: multivendor-vrf
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    site-a:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "RED, 10.39.100.10, gw 10.39.100.1", graph-icon: host, graph-level: 1, graph-posX: 80, graph-posY: 80}
+      exec:
+        - ip addr add 10.39.100.10/24 dev eth1
+        - ip route add 10.39.0.0/16 via 10.39.100.1
+        - sh -c "echo site-a > /usr/share/nginx/html/index.html"
+    site-b:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "BLUE, 10.39.100.10, gw 10.39.100.1", graph-icon: host, graph-level: 1, graph-posX: 80, graph-posY: 380}
+      exec:
+        - ip addr add 10.39.100.10/24 dev eth1
+        - ip route add 10.39.0.0/16 via 10.39.100.1
+        - sh -c "echo site-b > /usr/share/nginx/html/index.html"
+    r1:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:26.7.2
+      labels: {neo-note: "SR Linux, ip-vrf red and blue", graph-icon: router, graph-level: 2, graph-posX: 400, graph-posY: 230}
+      startup-config: configs/r1-srl.cli
+    r2:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, VRF devices RED and BLUE", graph-icon: router, graph-level: 3, graph-posX: 760, graph-posY: 230}
+      startup-config: configs/r2-frr.conf
+      exec:
+        # Make the two Linux VRF devices, put each port in its VRF, then load the FRR config again so FRR
+        # applies the VRF parts now that the VRFs exist.
+        - ip link add RED type vrf table 10
+        - ip link add BLUE type vrf table 20
+        - ip link set RED up
+        - ip link set BLUE up
+        - ip link set eth1 master RED
+        - ip link set eth3 master RED
+        - ip link set eth2 master BLUE
+        - ip link set eth4 master BLUE
+        - vtysh -f /etc/frr/frr.conf
+    site-c:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "RED, 10.39.200.10, gw 10.39.200.1", graph-icon: host, graph-level: 4, graph-posX: 1080, graph-posY: 80}
+      exec:
+        - ip addr add 10.39.200.10/24 dev eth1
+        - ip route add 10.39.0.0/16 via 10.39.200.1
+        - sh -c "echo site-c > /usr/share/nginx/html/index.html"
+    site-d:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "BLUE, 10.39.200.10, gw 10.39.200.1", graph-icon: host, graph-level: 4, graph-posX: 1080, graph-posY: 380}
+      exec:
+        - ip addr add 10.39.200.10/24 dev eth1
+        - ip route add 10.39.0.0/16 via 10.39.200.1
+        - sh -c "echo site-d > /usr/share/nginx/html/index.html"
+
+  links:
+    - type: veth  # site-a, VRF RED, 10.39.100.0/24
+      endpoints:
+        - {node: site-a, interface: eth1}
+        - {node: r1, interface: ethernet-1/1}
+      labels: {neo-net: "10.39.100.0/24 (RED)"}
+    - type: veth  # site-b, VRF BLUE, the same 10.39.100.0/24
+      endpoints:
+        - {node: site-b, interface: eth1}
+        - {node: r1, interface: ethernet-1/2}
+      labels: {neo-net: "10.39.100.0/24 (BLUE)"}
+    - type: veth  # r1 - r2 in VRF RED, 10.39.12.0/30
+      endpoints:
+        - {node: r1, interface: ethernet-1/3}
+        - {node: r2, interface: eth1}
+      labels: {neo-net: "10.39.12.0/30 (RED)"}
+    - type: veth  # r1 - r2 in VRF BLUE, the same 10.39.12.0/30
+      endpoints:
+        - {node: r1, interface: ethernet-1/4}
+        - {node: r2, interface: eth2}
+      labels: {neo-net: "10.39.12.0/30 (BLUE)"}
+    - type: veth  # site-c, VRF RED, 10.39.200.0/24
+      endpoints:
+        - {node: r2, interface: eth3}
+        - {node: site-c, interface: eth1}
+      labels: {neo-net: "10.39.200.0/24 (RED)"}
+    - type: veth  # site-d, VRF BLUE, the same 10.39.200.0/24
+      endpoints:
+        - {node: r2, interface: eth4}
+        - {node: site-d, interface: eth1}
+      labels: {neo-net: "10.39.200.0/24 (BLUE)"}

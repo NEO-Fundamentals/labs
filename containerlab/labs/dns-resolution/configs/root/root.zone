@@ -1,0 +1,8 @@
+; The lab root zone. It knows only who runs each top-level domain (here just "internal.") and refers the resolver there.
+$TTL 3600
+.                         IN SOA ns.root-servers.internal. hostmaster.root-servers.internal. 2026112701 3600 600 86400 300
+.                         IN NS  ns.root-servers.internal.
+; delegation of the top-level domain "internal." to the TLD server, with its address (glue)
+internal.                 IN NS  ns.tld-servers.internal.
+ns.root-servers.internal. IN A   10.6.0.2
+ns.tld-servers.internal.  IN A   10.6.0.6

@@ -1,0 +1,9 @@
+; corp.internal.: the company's own zone. This server holds the final answers.
+$TTL 300
+@        IN SOA ns1.corp.internal. hostmaster.corp.internal. 2026112701 3600 600 86400 30
+@        IN NS    ns1.corp.internal.
+ns1      IN A     10.6.0.10
+www      IN A     10.6.20.80
+mail     IN A     10.6.20.25
+@        IN MX 10 mail.corp.internal.
+intranet IN CNAME www.corp.internal.

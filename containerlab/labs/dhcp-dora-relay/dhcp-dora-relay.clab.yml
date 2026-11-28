@@ -1,0 +1,63 @@
+# NEO lab for "DHCP: how a host gets its address": two hosts with no address ask a DHCP server for one.
+# client-1 shares a cable with the server, so its broadcast reaches the server directly.
+# client-2 is behind r1 (Nokia SR Linux, free public image), which relays its broadcast to the server as a unicast packet.
+# srv and both clients run the NEO helper image (dnsmasq as the DHCP server, ISC dhclient as the DHCP client).
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: dhcp-dora-relay
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    client-1:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "no address yet (DHCP)", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 150}
+      exec:
+        # no default route until DHCP gives one (the management network stays reachable)
+        - ip route del default
+    srv:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "DHCP server 10.42.10.1", graph-icon: host, neo-role: server, graph-level: 2, graph-posX: 400, graph-posY: 150}
+      binds:
+        - configs/srv/dnsmasq.conf:/etc/neo/dnsmasq.conf:ro
+      exec:
+        - ip addr add 10.42.10.1/24 dev eth1
+        - ip addr add 10.42.0.1/30 dev eth2
+        - ip route add 10.42.20.0/24 via 10.42.0.2
+        - sysctl -q -w net.ipv4.ip_forward=1
+        - dnsmasq --conf-file=/etc/neo/dnsmasq.conf
+    r1:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:26.7.2
+      labels: {neo-note: "SR Linux, DHCP relay", graph-icon: router, graph-level: 3, graph-posX: 700, graph-posY: 150}
+      startup-config: configs/r1-srl.cli
+    client-2:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "no address yet (DHCP)", graph-icon: host, graph-level: 4, graph-posX: 1000, graph-posY: 150}
+      exec:
+        # no default route until DHCP gives one (the management network stays reachable)
+        - ip route del default
+
+  links:
+    - type: veth  # LAN A, 10.42.10.0/24: client-1 and the server on one cable
+      endpoints:
+        - {node: client-1, interface: eth1}
+        - {node: srv, interface: eth1}
+      labels: {neo-net: "10.42.10.0/24", neo-capture: "srv:eth1"}
+    - type: veth  # server - r1, 10.42.0.0/30
+      endpoints:
+        - {node: srv, interface: eth2}
+        - {node: r1, interface: ethernet-1/1}
+      labels: {neo-net: "10.42.0.0/30", neo-capture: "srv:eth2"}
+    - type: veth  # LAN B, 10.42.20.0/24: client-2 behind the relay
+      endpoints:
+        - {node: r1, interface: ethernet-1/2}
+        - {node: client-2, interface: eth1}
+      labels: {neo-net: "10.42.20.0/24", neo-capture: "client-2:eth1"}

@@ -1,0 +1,13 @@
+; The "internal." top-level domain. It knows which server is authoritative for each name below it and refers there.
+$TTL 3600
+@                         IN SOA ns.tld-servers.internal. hostmaster.tld-servers.internal. 2026112701 3600 600 86400 300
+@                         IN NS  ns.tld-servers.internal.
+ns.tld-servers            IN A   10.6.0.6
+ns.root-servers           IN A   10.6.0.2
+; delegation of corp.internal. to the company's own server, with its address (glue)
+corp                      IN NS  ns1.corp.internal.
+ns1.corp                  IN A   10.6.0.10
+; delegation of branch.internal. to a server that was never set up for it: 10.6.0.10 (the corp server) refuses
+; questions about branch.internal., so the resolver gives up with SERVFAIL (a "lame delegation")
+branch                    IN NS  ns1.branch.internal.
+ns1.branch                IN A   10.6.0.10
