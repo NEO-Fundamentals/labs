@@ -28,7 +28,7 @@ permissions:
 
 env:
   IMAGE: ghcr.io/neo-fundamentals/neo-tools
-  VERSION: "1.0.0"
+  VERSION: "1.1.0"
   CONTEXT: containerlab/tools/neo-tools
 
 jobs:
