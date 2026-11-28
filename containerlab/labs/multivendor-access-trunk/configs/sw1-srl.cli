@@ -1,0 +1,29 @@
+set / interface ethernet-1/1 admin-state enable
+set / interface ethernet-1/1 description "access port, VLAN 10"
+set / interface ethernet-1/1 subinterface 0 type bridged
+set / interface ethernet-1/1 subinterface 0 admin-state enable
+set / interface ethernet-1/2 admin-state enable
+set / interface ethernet-1/2 description "access port, VLAN 20"
+set / interface ethernet-1/2 subinterface 0 type bridged
+set / interface ethernet-1/2 subinterface 0 admin-state enable
+set / interface ethernet-1/3 admin-state enable
+set / interface ethernet-1/3 description "trunk to sw2: VLAN 10 and VLAN 20 tagged"
+set / interface ethernet-1/3 vlan-tagging true
+set / interface ethernet-1/3 subinterface 10 type bridged
+set / interface ethernet-1/3 subinterface 10 admin-state enable
+set / interface ethernet-1/3 subinterface 10 description "VLAN 10, tagged"
+set / interface ethernet-1/3 subinterface 10 vlan encap single-tagged vlan-id 10
+set / interface ethernet-1/3 subinterface 20 type bridged
+set / interface ethernet-1/3 subinterface 20 admin-state enable
+set / interface ethernet-1/3 subinterface 20 description "VLAN 20, tagged"
+set / interface ethernet-1/3 subinterface 20 vlan encap single-tagged vlan-id 20
+set / network-instance vlan10 type mac-vrf
+set / network-instance vlan10 admin-state enable
+set / network-instance vlan10 description "VLAN 10"
+set / network-instance vlan10 interface ethernet-1/1.0
+set / network-instance vlan10 interface ethernet-1/3.10
+set / network-instance vlan20 type mac-vrf
+set / network-instance vlan20 admin-state enable
+set / network-instance vlan20 description "VLAN 20"
+set / network-instance vlan20 interface ethernet-1/2.0
+set / network-instance vlan20 interface ethernet-1/3.20

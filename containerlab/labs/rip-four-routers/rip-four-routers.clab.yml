@@ -1,0 +1,100 @@
+# NEO lab for "RIP: distance-vector routing, hop counts, and why OSPF replaced it".
+# Four FRR routers run RIP version 2. r1, r2 and r3 form a triangle, so r1 has two ways toward r4.
+# "mid" is a plain Linux bridge in the r1 - r3 cable: switching the bridge off breaks that link
+# silently (both routers still see their port up), which is the failure RIP is slowest to notice.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: rip-four-routers
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    host-a:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "10.10.0.10, gw 10.10.0.1", graph-icon: host, graph-level: 1, graph-posX: 80, graph-posY: 120}
+      exec:
+        - ip addr add 10.10.0.10/24 dev eth1
+        - ip route add 10.0.0.0/8 via 10.10.0.1
+        - ip route add 172.16.0.0/16 via 10.10.0.1
+    r1:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, RIP v2", graph-icon: router, graph-level: 2, graph-posX: 330, graph-posY: 120}
+      startup-config: configs/r1-frr.conf
+      daemons: [ripd]
+    r2:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, RIP v2", graph-icon: router, graph-level: 3, graph-posX: 640, graph-posY: 120}
+      startup-config: configs/r2-frr.conf
+      daemons: [ripd]
+    mid:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "Linux bridge in the r1 - r3 cable", graph-icon: switch, graph-level: 3, graph-posX: 330, graph-posY: 420}
+      exec:
+        - ip link add br0 type bridge
+        - ip link set eth1 master br0
+        - ip link set eth2 master br0
+        - ip link set br0 up
+    r3:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, RIP v2", graph-icon: router, graph-level: 4, graph-posX: 640, graph-posY: 420}
+      startup-config: configs/r3-frr.conf
+      daemons: [ripd]
+    r4:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, RIP v2", graph-icon: router, graph-level: 5, graph-posX: 950, graph-posY: 420}
+      startup-config: configs/r4-frr.conf
+      daemons: [ripd]
+    host-d:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "10.40.0.10, gw 10.40.0.1", graph-icon: host, graph-level: 6, graph-posX: 1200, graph-posY: 420}
+      exec:
+        - ip addr add 10.40.0.10/24 dev eth1
+        - ip route add 10.0.0.0/8 via 10.40.0.1
+        - ip route add 172.16.0.0/16 via 10.40.0.1
+
+  links:
+    - type: veth  # host-a LAN, 10.10.0.0/24
+      endpoints:
+        - {node: host-a, interface: eth1}
+        - {node: r1, interface: eth1}
+      labels: {neo-net: "10.10.0.0/24"}
+    - type: veth  # r1 - r2, 172.16.12.0/30
+      endpoints:
+        - {node: r1, interface: eth2}
+        - {node: r2, interface: eth1}
+      labels: {neo-net: "172.16.12.0/30", neo-capture: "r1:eth2"}
+    - type: veth  # r1 - mid (first half of the r1 - r3 cable, 172.16.13.0/30)
+      endpoints:
+        - {node: r1, interface: eth3}
+        - {node: mid, interface: eth1}
+      labels: {neo-net: "172.16.13.0/30", neo-capture: "r1:eth3"}
+    - type: veth  # mid - r3 (second half of the r1 - r3 cable)
+      endpoints:
+        - {node: mid, interface: eth2}
+        - {node: r3, interface: eth1}
+    - type: veth  # r2 - r3, 172.16.23.0/30
+      endpoints:
+        - {node: r2, interface: eth2}
+        - {node: r3, interface: eth2}
+      labels: {neo-net: "172.16.23.0/30"}
+    - type: veth  # r3 - r4, 172.16.34.0/30
+      endpoints:
+        - {node: r3, interface: eth3}
+        - {node: r4, interface: eth1}
+      labels: {neo-net: "172.16.34.0/30"}
+    - type: veth  # host-d LAN, 10.40.0.0/24
+      endpoints:
+        - {node: r4, interface: eth2}
+        - {node: host-d, interface: eth1}
+      labels: {neo-net: "10.40.0.0/24"}

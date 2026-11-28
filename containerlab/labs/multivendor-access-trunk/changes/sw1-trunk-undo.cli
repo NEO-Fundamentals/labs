@@ -1,0 +1,8 @@
+# sw1 (SR Linux): put VLAN 20 back on the trunk, tagged.
+enter candidate
+set / interface ethernet-1/3 subinterface 20 type bridged
+set / interface ethernet-1/3 subinterface 20 admin-state enable
+set / interface ethernet-1/3 subinterface 20 description "VLAN 20, tagged"
+set / interface ethernet-1/3 subinterface 20 vlan encap single-tagged vlan-id 20
+set / network-instance vlan20 interface ethernet-1/3.20
+commit now

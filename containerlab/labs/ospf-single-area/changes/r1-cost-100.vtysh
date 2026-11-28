@@ -1,0 +1,4 @@
+configure terminal
+interface eth2
+ ip ospf cost 100
+end

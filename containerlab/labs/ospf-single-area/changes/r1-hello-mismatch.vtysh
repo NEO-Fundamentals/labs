@@ -1,0 +1,4 @@
+configure terminal
+interface eth2
+ ip ospf hello-interval 2
+end
