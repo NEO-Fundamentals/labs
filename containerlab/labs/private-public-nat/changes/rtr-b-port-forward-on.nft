@@ -1,0 +1,8 @@
+# rtr-b: destination NAT (a "port forward"). Web requests (TCP port 80) that arrive on rtr-b's public address
+# 192.168.200.6 are sent on to the private web server host-b, 10.46.2.10.
+table ip neo_dnat {
+    chain prerouting {
+        type nat hook prerouting priority dstnat; policy accept;
+        iifname "eth1" ip daddr 192.168.200.6 tcp dport 80 dnat to 10.46.2.10
+    }
+}

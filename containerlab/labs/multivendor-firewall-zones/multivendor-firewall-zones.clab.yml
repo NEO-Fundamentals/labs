@@ -1,0 +1,75 @@
+# NEO lab for "Multi-vendor firewalls: Junos SRX": the SRX way of building a firewall policy (security zones, zone-pair
+# policies, an address book, host-inbound traffic, the flow session table), built on a Linux router.
+# fw = a Linux router running nftables with connection tracking (the NEO helper image). It is NOT a Junos SRX: there
+# is no Junos here. configs/srx-zones.nft is laid out the SRX way, and configs/srx-reference.conf shows the same
+# policy in Junos syntax, as text to compare (it is not loaded anywhere).
+# Ports: eth1 = zone trust, eth2 = zone untrust, eth3 = zone dmz. host-a (trust) runs a web server on 8080; host-b
+# (untrust) and host-c (dmz) run web servers on port 80.
+# All addresses are private (RFC 1918): trust 10.40.1.0/24, untrust 10.40.2.0/24, dmz 10.40.3.0/24. The untrust zone
+# PLAYS the Internet; the lab never touches the real Internet. The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: multivendor-firewall-zones
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    host-a:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "trust, 10.40.1.10, web :8080", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 200}
+      exec:
+        - ip addr add 10.40.1.10/24 dev eth1
+        - ip route replace default via 10.40.1.1
+        - sh -c 'echo "hello from host-a (trust, 10.40.1.10)" > /srv/www/index.html'
+        - sh -c 'nohup python3 -m http.server 8080 --directory /srv/www >/var/log/web.log 2>&1 &'
+    fw:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "Linux nftables, laid out like an SRX", graph-icon: router, neo-role: firewall, graph-level: 2, graph-posX: 400, graph-posY: 200}
+      binds:
+        - configs:/neo/configs:ro
+      exec:
+        - ip addr add 10.40.1.1/24 dev eth1
+        - ip addr add 10.40.2.1/24 dev eth2
+        - ip addr add 10.40.3.1/24 dev eth3
+        - sysctl -q -w net.ipv4.ip_forward=1
+        - nft -f /neo/configs/srx-zones.nft
+    host-b:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "untrust, 10.40.2.20, web :80", graph-icon: host, graph-level: 3, graph-posX: 700, graph-posY: 200}
+      exec:
+        - ip addr add 10.40.2.20/24 dev eth1
+        - ip route replace default via 10.40.2.1
+        - sh -c 'echo "hello from host-b (untrust, 10.40.2.20)" > /srv/www/index.html'
+        - sh -c 'nohup python3 -m http.server 80 --directory /srv/www >/var/log/web.log 2>&1 &'
+    host-c:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "dmz, 10.40.3.30, web :80", graph-icon: host, neo-role: server, graph-level: 3, graph-posX: 400, graph-posY: 450}
+      exec:
+        - ip addr add 10.40.3.30/24 dev eth1
+        - ip route replace default via 10.40.3.1
+        - sh -c 'echo "hello from host-c (dmz, 10.40.3.30)" > /srv/www/index.html'
+        - sh -c 'nohup python3 -m http.server 80 --directory /srv/www >/var/log/web.log 2>&1 &'
+
+  links:
+    - type: veth  # zone trust, 10.40.1.0/24
+      endpoints:
+        - {node: host-a, interface: eth1}
+        - {node: fw, interface: eth1}
+      labels: {neo-net: "trust 10.40.1.0/24"}
+    - type: veth  # zone untrust, 10.40.2.0/24 (plays the Internet)
+      endpoints:
+        - {node: fw, interface: eth2}
+        - {node: host-b, interface: eth1}
+      labels: {neo-net: "untrust 10.40.2.0/24", neo-capture: "fw:eth2"}
+    - type: veth  # zone dmz, 10.40.3.0/24
+      endpoints:
+        - {node: fw, interface: eth3}
+        - {node: host-c, interface: eth1}
+      labels: {neo-net: "dmz 10.40.3.0/24", neo-capture: "fw:eth3"}

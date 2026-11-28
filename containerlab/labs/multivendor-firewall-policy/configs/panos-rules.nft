@@ -1,0 +1,54 @@
+# The security policy of fw, laid out the way PAN-OS builds one. Linux nftables, not PAN-OS: the PAN-OS version of the
+# same rulebase is in panos-reference.txt (text only). Loading this file replaces the whole table (a fresh start).
+#   zones          = groups of interfaces (sets zone-trust, zone-untrust, zone-dmz); trust has TWO interfaces
+#   address object = the set web-srv
+#   security rules = chain security-rules: named rules, top to bottom, first match wins; a new rule goes to the bottom
+#   default rules  = after the rulebase: intrazone-default (same zone: allow), interzone-default (different: deny)
+#   policy match   = a packet trace (set trace-these) shows which rule decided, like "test security-policy-match"
+table inet pan
+delete table inet pan
+table inet pan {
+	set zone-trust {
+		type ifname
+		elements = { "eth1", "eth4" }
+	}
+	set zone-untrust {
+		type ifname
+		elements = { "eth2" }
+	}
+	set zone-dmz {
+		type ifname
+		elements = { "eth3" }
+	}
+	# address object web-srv 10.41.3.30
+	set web-srv {
+		type ipv4_addr
+		elements = { 10.41.3.30 }
+	}
+	# source . destination pairs to trace (exercise 3); empty at the start
+	set trace-these {
+		type ipv4_addr . ipv4_addr
+	}
+
+	chain security-rules {
+		iifname @zone-trust oifname @zone-untrust counter accept comment "rule 1 allow-outbound: trust to untrust, any, allow"
+		iifname @zone-untrust oifname @zone-dmz ip daddr @web-srv tcp dport 80 counter accept comment "rule 2 web-to-dmz: untrust to dmz, web-srv, service-http, allow"
+		iifname @zone-trust oifname @zone-dmz ip daddr @web-srv tcp dport 22 counter accept comment "rule 3 admin-ssh: trust to dmz, web-srv, ssh on port 22, allow"
+	}
+
+	chain trace {
+		type filter hook prerouting priority raw; policy accept;
+		ip saddr . ip daddr @trace-these meta nftrace set 1
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+		ct state established,related accept comment "session already allowed"
+		ct state invalid drop
+		jump security-rules
+		iifname @zone-trust oifname @zone-trust counter accept comment "intrazone-default: same zone (trust), allow"
+		iifname @zone-untrust oifname @zone-untrust counter accept comment "intrazone-default: same zone (untrust), allow"
+		iifname @zone-dmz oifname @zone-dmz counter accept comment "intrazone-default: same zone (dmz), allow"
+		counter comment "interzone-default: different zones, deny"
+	}
+}

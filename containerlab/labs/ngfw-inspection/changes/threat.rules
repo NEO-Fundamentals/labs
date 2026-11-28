@@ -1,0 +1,5 @@
+# Exercise 4: a threat signature in IPS mode. Any packet whose payload contains the text NEO-TEST-THREAT is dropped,
+# and so is the rest of its flow. (The lab's test file plays a malicious download; it is harmless text.)
+mode ips
+block content NEO-TEST-THREAT
+alert app ssh

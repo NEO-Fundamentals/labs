@@ -1,0 +1,75 @@
+# NEO lab for "Next-generation firewall features": application identification, URL filtering and a threat signature,
+# on an inline sensor that sits in the middle of one LAN like a bump in the wire.
+# ids = a Linux container with two interfaces and NO IP address, running Suricata in AF_PACKET IPS mode (in the
+# neo-tools 1.1.0 image). It copies frames between eth1 and eth2, identifies each TCP flow's application, reads
+# the HTTP Host header and the TLS server name (SNI), and checks payloads for content signatures. It is a real
+# Suricata engine used as a teaching stand-in for the inspection part of an NGFW; it is not a commercial NGFW,
+# and it does not decrypt TLS.
+# client and server are in the same subnet, 10.16.1.0/24; every frame between them crosses ids.
+# client and server switch off transmit checksum offload on eth1 (ethtool -K eth1 tx off): frames that a program
+# re-sends from a raw socket, as Suricata does, must already carry correct checksums (Exercise 5 shows why).
+# The site names (*.lab.test) are in client's /etc/hosts; .test is reserved for testing and never exists on the Internet.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: ngfw-inspection
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    client:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.16.1.10", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 200}
+      exec:
+        - ip addr add 10.16.1.10/24 dev eth1
+        - ethtool -K eth1 tx off
+        - sh -c 'echo "10.16.1.20 news.lab.test games.lab.test" >> /etc/hosts'
+    ids:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.1.0
+      labels: {neo-note: "inline sensor, no IP (Suricata)", graph-icon: router, neo-role: firewall, graph-level: 2, graph-posX: 350, graph-posY: 200}
+      binds:
+        - configs:/neo/configs:ro
+        - changes:/neo/changes:ro
+        - scripts:/neo/scripts:ro
+      exec:
+        - sysctl -q -w net.ipv6.conf.eth1.disable_ipv6=1
+        - sysctl -q -w net.ipv6.conf.eth2.disable_ipv6=1
+        - ethtool -K eth1 gro off gso off tso off
+        - ethtool -K eth2 gro off gso off tso off
+        - mkdir -p /etc/neo
+        - sh -c 'nohup /neo/scripts/start-ids.sh >/var/log/ids-start.log 2>&1'
+    server:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.16.1.20, web :80 and :443, ssh :8443", graph-icon: host, neo-role: server, graph-level: 3, graph-posX: 600, graph-posY: 200}
+      binds:
+        - scripts:/neo/scripts:ro
+      exec:
+        - ip addr add 10.16.1.20/24 dev eth1
+        - ethtool -K eth1 tx off
+        - mkdir -p /etc/neo /srv/www/download
+        - sh -c 'echo "hello from the lab web server (10.16.1.20)" > /srv/www/index.html'
+        - sh -c 'echo "This file plays a malicious download, signature NEO-TEST-THREAT" > /srv/www/download/update.txt'
+        - sh -c 'openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj /CN=lab.test -addext subjectAltName=DNS:*.lab.test -keyout /etc/neo/web.key -out /etc/neo/web.crt 2>/dev/null'
+        - sh -c 'echo "10.16.1.20 $(hostname)" >> /etc/hosts'
+        - sh -c 'nohup python3 -m http.server 80 --directory /srv/www >/var/log/web.log 2>&1 &'
+        - sh -c 'nohup python3 /neo/scripts/web_tls.py >/var/log/web_tls.log 2>&1 &'
+        - flock /run/neo-keygen.lock ssh-keygen -A     # waits until this container's host keys exist (the image makes them at start and holds none), so sshd below always finds them
+        - /usr/sbin/sshd -p 8443
+
+  links:
+    - type: veth  # 10.16.1.0/24, client side of the sensor
+      endpoints:
+        - {node: client, interface: eth1}
+        - {node: ids, interface: eth1}
+      labels: {neo-net: "10.16.1.0/24", neo-capture: "ids:eth1"}
+    - type: veth  # 10.16.1.0/24, server side of the sensor
+      endpoints:
+        - {node: ids, interface: eth2}
+        - {node: server, interface: eth1}
+      labels: {neo-capture: "ids:eth2"}

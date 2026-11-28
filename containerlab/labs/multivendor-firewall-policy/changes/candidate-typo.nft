@@ -1,0 +1,4 @@
+# A candidate change with a typo in its second rule (zone-untrsut). Two new rules at the bottom of the rulebase.
+# Load it with:  docker exec -i clab-multivendor-firewall-policy-fw nft -c -f - < changes/candidate-typo.nft
+add rule inet pan security-rules iifname @zone-trust oifname @zone-dmz ip daddr @web-srv tcp dport 80 counter accept comment "rule 4 web-from-trust: trust to dmz, web-srv, service-http, allow"
+add rule inet pan security-rules iifname @zone-dmz oifname @zone-untrsut tcp dport 80 counter accept comment "rule 5 dmz-updates: dmz to untrust, any, service-http, allow"

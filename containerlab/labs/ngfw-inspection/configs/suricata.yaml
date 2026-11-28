@@ -1,0 +1,92 @@
+%YAML 1.1
+---
+# Lab sensor config: AF_PACKET IPS between eth1 (client) and eth2 (server).
+# Only this lab's rules are loaded. Checksum validation is off so exercise 5
+# can show the server dropping frames that were re-sent with an empty checksum.
+
+default-log-dir: /var/log/suricata/
+default-rule-path: /etc/suricata/rules
+rule-files:
+  - neo.rules
+
+classification-file: /etc/suricata/classification.config
+reference-config-file: /etc/suricata/reference.config
+
+runmode: workers
+
+vars:
+  address-groups:
+    HOME_NET: any
+    EXTERNAL_NET: any
+  port-groups:
+    HTTP_PORTS: "[80]"
+    SHELLCODE_PORTS: "!80"
+
+# Do not drop frames with an empty or wrong transport checksum (exercise 5).
+checksum-validation: no
+
+outputs:
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: eve.json
+      types:
+        - alert
+        - anomaly
+        - http:
+            extended: yes
+        - tls:
+            extended: yes
+        - ssh
+        - flow
+        - drop
+  - fast:
+      enabled: yes
+      filename: fast.log
+      append: yes
+  - stats:
+      enabled: yes
+      filename: stats.log
+      interval: 8
+
+af-packet:
+  - interface: eth1
+    threads: 1
+    cluster-id: 99
+    cluster-type: cluster_flow
+    defrag: no
+    use-mmap: yes
+    tpacket-v3: no
+    copy-mode: ips
+    copy-iface: eth2
+  - interface: eth2
+    threads: 1
+    cluster-id: 98
+    cluster-type: cluster_flow
+    defrag: no
+    use-mmap: yes
+    tpacket-v3: no
+    copy-mode: ips
+    copy-iface: eth1
+
+app-layer:
+  protocols:
+    tls:
+      enabled: yes
+      detection-ports:
+        dp: 443
+    http:
+      enabled: yes
+    ssh:
+      enabled: yes
+
+unix-command:
+  enabled: yes
+  filename: /var/run/suricata-command.socket
+
+logging:
+  default-log-level: notice
+  outputs:
+    - file:
+        enabled: yes
+        filename: suricata.log

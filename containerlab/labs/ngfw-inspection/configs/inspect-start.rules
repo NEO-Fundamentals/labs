@@ -1,0 +1,3 @@
+# ids's policy at deploy: visibility only. Mode ids (log, never drop) and no rules: the engine identifies and logs
+# every flow and blocks nothing.
+mode ids

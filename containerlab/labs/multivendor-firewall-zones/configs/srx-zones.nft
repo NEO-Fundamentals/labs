@@ -1,0 +1,54 @@
+# The firewall policy of fw, laid out the way a Junos SRX builds one. Linux nftables, not Junos: the Junos version of
+# the same policy is in srx-reference.conf (text only). Loading this file replaces the whole table (a fresh start).
+#   security zones   = which interface belongs to which zone (set zone_pair below uses the interface names)
+#   zone-pair policy = one chain per "from-zone X to-zone Y", its policies read top to bottom, first match wins
+#   default policy   = no zone pair or no policy matched: deny (the SRX default is deny-all)
+#   host-inbound     = traffic TO the firewall itself, allowed per zone (SRX: host-inbound-traffic system-services)
+#   flow session     = connection tracking: replies of an allowed session pass without a policy of their own
+table inet srx
+delete table inet srx
+table inet srx {
+	# address book: global address web-server 10.40.3.30/32
+	set web-server {
+		type ipv4_addr
+		elements = { 10.40.3.30 }
+	}
+	# zones: eth1 = trust, eth2 = untrust, eth3 = dmz. One entry per zone pair that has policies.
+	map zone_pair {
+		type ifname . ifname : verdict
+		elements = { "eth1" . "eth2" : jump from-trust-to-untrust,
+			     "eth2" . "eth3" : jump from-untrust-to-dmz,
+			     "eth1" . "eth3" : jump from-trust-to-dmz }
+	}
+	# host-inbound-traffic system-services ping: the zones (interfaces) that may ping the firewall itself
+	set ping-zones {
+		type ifname
+		elements = { "eth1" }
+	}
+
+	chain from-trust-to-untrust {
+		counter accept comment "policy allow-out: any any any, permit"
+	}
+	chain from-untrust-to-dmz {
+		ip daddr @web-server tcp dport 80 counter accept comment "policy web-in: any web-server junos-http, permit"
+	}
+	chain from-trust-to-dmz {
+		ip daddr @web-server tcp dport 80 counter accept comment "policy web-trust: any web-server junos-http, permit"
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+		ct state established,related accept comment "flow session: part of an allowed session"
+		ct state invalid drop
+		ct state new iifname . oifname vmap @zone_pair
+		counter comment "default-policy deny-all"
+	}
+	chain input {
+		type filter hook input priority filter; policy drop;
+		ct state established,related accept
+		iifname { "lo", "eth0" } accept comment "loopback and the management port (SRX: fxp0)"
+		# only to the address of the interface the ping arrives on (fib ... type local = "this interface's own address")
+		iifname @ping-zones fib daddr . iif type local icmp type echo-request counter accept comment "host-inbound-traffic system-services ping"
+		counter comment "host-inbound default: nothing"
+	}
+}

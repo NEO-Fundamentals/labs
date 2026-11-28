@@ -1,0 +1,5 @@
+# The same candidate change, typo fixed. Two new rules at the bottom of the rulebase.
+# Check it with nft -c -f (validate only), then load it with nft -f (commit), from the lab folder:
+#   docker exec -i clab-multivendor-firewall-policy-fw nft -f - < changes/candidate.nft
+add rule inet pan security-rules iifname @zone-trust oifname @zone-dmz ip daddr @web-srv tcp dport 80 counter accept comment "rule 4 web-from-trust: trust to dmz, web-srv, service-http, allow"
+add rule inet pan security-rules iifname @zone-dmz oifname @zone-untrust tcp dport 80 counter accept comment "rule 5 dmz-updates: dmz to untrust, any, service-http, allow"

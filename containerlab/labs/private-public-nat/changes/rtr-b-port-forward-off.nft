@@ -1,0 +1,2 @@
+# rtr-b: remove the port forward again.
+delete table ip neo_dnat

@@ -1,0 +1,8 @@
+# rtr-a: source NAT. Packets from site A (10.46.1.0/24) that leave toward the ISP (eth2) get rtr-a's public
+# address 192.168.200.2 as their source. Replies come back to 192.168.200.2 and rtr-a puts the private address back.
+table ip neo_snat {
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        oifname "eth2" ip saddr 10.46.1.0/24 masquerade
+    }
+}

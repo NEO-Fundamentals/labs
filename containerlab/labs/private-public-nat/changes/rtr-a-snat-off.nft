@@ -1,0 +1,2 @@
+# rtr-a: remove the source NAT again.
+delete table ip neo_snat

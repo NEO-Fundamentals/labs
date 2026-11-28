@@ -1,0 +1,4 @@
+# Exercise 3, second step: the same URL filter in IPS mode. Flows to games.lab.test (HTTP Host or TLS SNI) are dropped.
+mode ips
+block host games.lab.test
+block sni games.lab.test

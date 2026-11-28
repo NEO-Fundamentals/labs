@@ -1,0 +1,79 @@
+# NEO lab for "IP address space: public, private and reserved ranges": two sites with private addresses joined by a stand-in ISP.
+# The ISP (FRR) drops every packet from a private 10.x address and has no route to the sites, as a real Internet provider does.
+# rtr-a and rtr-b are Linux routers (the NEO helper image, with nftables) that you give NAT rules during the exercises.
+# Every address here is private (RFC 1918). 192.168.200.0/24 PLAYS the role of public Internet addresses in this lab;
+# it is not really public, so the lab never touches the real Internet. The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: private-public-nat
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    host-a:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.46.1.10, site A", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 200}
+      exec:
+        - ip addr add 10.46.1.10/24 dev eth1
+        - ip route replace default via 10.46.1.1
+    rtr-a:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "Linux + nftables, public 192.168.200.2", graph-icon: router, graph-level: 2, graph-posX: 350, graph-posY: 200}
+      exec:
+        - ip addr add 10.46.1.1/24 dev eth1
+        - ip addr add 192.168.200.2/30 dev eth2
+        - ip route replace default via 192.168.200.1
+        - sysctl -q -w net.ipv4.ip_forward=1
+    isp:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, stand-in ISP", graph-icon: router, graph-level: 3, graph-posX: 600, graph-posY: 200}
+      startup-config: configs/isp-frr.conf
+      exec:
+        # like a real provider: drop every packet that comes from a private 10.x address
+        - ip rule add from 10.0.0.0/8 blackhole priority 100
+    rtr-b:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "Linux + nftables, public 192.168.200.6", graph-icon: router, graph-level: 4, graph-posX: 850, graph-posY: 200}
+      exec:
+        - ip addr add 192.168.200.6/30 dev eth1
+        - ip addr add 10.46.2.1/24 dev eth2
+        - ip route replace default via 192.168.200.5
+        - sysctl -q -w net.ipv4.ip_forward=1
+    host-b:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.46.2.10, web server", graph-icon: host, neo-role: server, graph-level: 5, graph-posX: 1100, graph-posY: 200}
+      exec:
+        - ip addr add 10.46.2.10/24 dev eth1
+        - ip route replace default via 10.46.2.1
+        - sh -c 'echo "hello from host-b (10.46.2.10)" > /srv/www/index.html'
+        - sh -c 'nohup python3 -m http.server 80 --directory /srv/www >/var/log/web.log 2>&1 &'
+
+  links:
+    - type: veth  # site A LAN, 10.46.1.0/24 (private)
+      endpoints:
+        - {node: host-a, interface: eth1}
+        - {node: rtr-a, interface: eth1}
+      labels: {neo-net: "10.46.1.0/24", neo-capture: "rtr-a:eth1"}
+    - type: veth  # rtr-a - ISP, 192.168.200.0/30 (plays public)
+      endpoints:
+        - {node: rtr-a, interface: eth2}
+        - {node: isp, interface: eth1}
+      labels: {neo-net: "192.168.200.0/30", neo-capture: "rtr-a:eth2"}
+    - type: veth  # ISP - rtr-b, 192.168.200.4/30 (plays public)
+      endpoints:
+        - {node: isp, interface: eth2}
+        - {node: rtr-b, interface: eth1}
+      labels: {neo-net: "192.168.200.4/30", neo-capture: "rtr-b:eth1"}
+    - type: veth  # site B LAN, 10.46.2.0/24 (private)
+      endpoints:
+        - {node: rtr-b, interface: eth2}
+        - {node: host-b, interface: eth1}
+      labels: {neo-net: "10.46.2.0/24", neo-capture: "rtr-b:eth2"}

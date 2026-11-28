@@ -1,0 +1,20 @@
+# TEXT ONLY: the same zones and rulebase in PAN-OS CLI syntax ("set" commands in configure mode), to compare with
+# panos-rules.nft. Nothing in the lab loads this file; there is no Palo Alto firewall in the lab. Addresses are the
+# lab's private ones; ethernet1/1 to 1/4 stand for fw's eth1 to eth4.
+set network interface ethernet ethernet1/1 layer3 ip 10.41.1.1/24
+set network interface ethernet ethernet1/2 layer3 ip 10.41.2.1/24
+set network interface ethernet ethernet1/3 layer3 ip 10.41.3.1/24
+set network interface ethernet ethernet1/4 layer3 ip 10.41.4.1/24
+set zone trust network layer3 [ ethernet1/1 ethernet1/4 ]
+set zone untrust network layer3 ethernet1/2
+set zone dmz network layer3 ethernet1/3
+set address web-srv ip-netmask 10.41.3.30/32
+set rulebase security rules allow-outbound from trust to untrust source any destination any application any service any action allow
+set rulebase security rules web-to-dmz from untrust to dmz source any destination web-srv application web-browsing service service-http action allow
+set rulebase security rules admin-ssh from trust to dmz source any destination web-srv application ssh service application-default action allow
+# The predefined rules after the rulebase (shown, not set): intrazone-default (allow), interzone-default (deny).
+# Exercise 3:  test security-policy-match from trust to dmz source 10.41.1.10 destination 10.41.3.30 protocol 6 destination-port 80
+# Exercise 4 (candidate configuration, then "validate full" and "commit"):
+set rulebase security rules web-from-trust from trust to dmz source any destination web-srv application web-browsing service service-http action allow
+set rulebase security rules dmz-updates from dmz to untrust source any destination any application web-browsing service service-http action allow
+# PAN-OS identifies applications (App-ID) whatever the port; this lab matches ports only (see the ngfw-inspection lab).

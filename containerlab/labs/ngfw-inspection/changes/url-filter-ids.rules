@@ -1,0 +1,4 @@
+# Exercise 3, first step: a URL filter in IDS mode. Flows to games.lab.test are logged as "would block", not dropped.
+mode ids
+block host games.lab.test
+block sni games.lab.test
