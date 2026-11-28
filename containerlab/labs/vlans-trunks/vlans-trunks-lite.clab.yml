@@ -1,0 +1,80 @@
+# Lighter variant of "VLANs and 802.1Q trunks" for an 8 GB virtual machine.
+# sw1 is still a Nokia SR Linux switch (same config as the full lab). sw2 is a Linux VLAN-aware
+# bridge, which needs only a few megabytes instead of about 1.9 GB. The hosts, addresses, VLANs
+# and trunk (VLAN 30 tagged, VLAN 10 untagged/native) are the same as vlans-trunks.clab.yml.
+# Deploy this file OR the full lab, not both (they share the lab name vlans-trunks, so the
+# container names stay clab-vlans-trunks-*, and the exercise pings do not change).
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+name: vlans-trunks
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    host-1:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "VLAN 10, 10.7.0.11", graph-icon: host, graph-level: 1, graph-posX: 80, graph-posY: 80}
+      exec:
+        - ip addr add 10.7.0.11/24 dev eth1
+    host-2:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "VLAN 30, 10.7.0.31", graph-icon: host, graph-level: 1, graph-posX: 80, graph-posY: 380}
+      exec:
+        - ip addr add 10.7.0.31/24 dev eth1
+    sw1:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:26.7.2
+      labels: {neo-note: "SR Linux switch, mac-vrf vlan10 and vlan30", graph-icon: switch, graph-level: 2, graph-posX: 380, graph-posY: 230}
+      startup-config: configs/sw1-srl.cli
+    sw2:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "Linux VLAN-aware bridge (lighter stand-in for sw2)", graph-icon: switch, graph-level: 3, graph-posX: 760, graph-posY: 230}
+      binds:
+        - configs/sw2-bridge.sh:/tmp/sw2-bridge.sh:ro
+      exec:
+        - bash /tmp/sw2-bridge.sh
+    host-3:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "VLAN 10, 10.7.0.12", graph-icon: host, graph-level: 4, graph-posX: 1060, graph-posY: 80}
+      exec:
+        - ip addr add 10.7.0.12/24 dev eth1
+    host-4:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "VLAN 30, 10.7.0.32", graph-icon: host, graph-level: 4, graph-posX: 1060, graph-posY: 380}
+      exec:
+        - ip addr add 10.7.0.32/24 dev eth1
+
+  links:
+    - type: veth
+      endpoints:
+        - {node: host-1, interface: eth1}
+        - {node: sw1, interface: ethernet-1/1}
+      labels: {neo-net: "access VLAN 10"}
+    - type: veth
+      endpoints:
+        - {node: host-2, interface: eth1}
+        - {node: sw1, interface: ethernet-1/2}
+      labels: {neo-net: "access VLAN 30"}
+    - type: veth
+      endpoints:
+        - {node: sw1, interface: ethernet-1/3}
+        - {node: sw2, interface: eth3}
+      labels: {neo-net: "trunk: 30 tagged, 10 native", neo-capture: "sw1:e1-3"}
+    - type: veth
+      endpoints:
+        - {node: sw2, interface: eth1}
+        - {node: host-3, interface: eth1}
+      labels: {neo-net: "access VLAN 10"}
+    - type: veth
+      endpoints:
+        - {node: sw2, interface: eth2}
+        - {node: host-4, interface: eth1}
+      labels: {neo-net: "access VLAN 30"}

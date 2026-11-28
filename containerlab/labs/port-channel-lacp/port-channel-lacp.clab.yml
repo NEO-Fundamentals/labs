@@ -1,0 +1,57 @@
+# NEO lab for "Port Channels: bundling links with LACP": two switches joined by a two-link port channel.
+# sw1 and sw2 = Nokia SR Linux (free public image) as Layer 2 switches. Their ethernet-1/1 and ethernet-1/2 are the two
+# members of lag1 on each side; LACP (802.1AX / 802.3ad) is active with fast timers (one LACPDU per second).
+# h1 and h2 = Linux hosts in one subnet, 10.43.0.0/24, one on each switch: their traffic crosses the port channel.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: port-channel-lacp
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    h1:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "10.43.0.11", graph-icon: host, graph-level: 1, graph-posX: 60, graph-posY: 230}
+      exec:
+        - ip addr add 10.43.0.11/24 dev eth1
+    sw1:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:26.7.2
+      labels: {neo-note: "SR Linux switch, lag1 = e1/1 + e1/2, LACP", graph-icon: switch, graph-level: 2, graph-posX: 360, graph-posY: 230}
+      startup-config: configs/sw1-srl.cli
+    sw2:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:26.7.2
+      labels: {neo-note: "SR Linux switch, lag1 = e1/1 + e1/2, LACP", graph-icon: switch, graph-level: 3, graph-posX: 760, graph-posY: 230}
+      startup-config: configs/sw2-srl.cli
+    h2:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "10.43.0.12", graph-icon: host, graph-level: 4, graph-posX: 1060, graph-posY: 230}
+      exec:
+        - ip addr add 10.43.0.12/24 dev eth1
+
+  links:
+    - type: veth  # h1 access port
+      endpoints:
+        - {node: h1, interface: eth1}
+        - {node: sw1, interface: ethernet-1/3}
+    - type: veth  # lag1 member 1
+      endpoints:
+        - {node: sw1, interface: ethernet-1/1}
+        - {node: sw2, interface: ethernet-1/1}
+      labels: {neo-net: "lag1 member 1", neo-lag: "LAG lag1", neo-capture: "sw1:e1-1"}
+    - type: veth  # lag1 member 2
+      endpoints:
+        - {node: sw1, interface: ethernet-1/2}
+        - {node: sw2, interface: ethernet-1/2}
+      labels: {neo-net: "lag1 member 2", neo-lag: "LAG lag1", neo-capture: "sw1:e1-2"}
+    - type: veth  # h2 access port
+      endpoints:
+        - {node: sw2, interface: ethernet-1/3}
+        - {node: h2, interface: eth1}

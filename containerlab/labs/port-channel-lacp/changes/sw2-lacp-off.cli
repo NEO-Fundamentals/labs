@@ -1,0 +1,4 @@
+enter candidate
+delete / interface lag1 lag lacp
+set / interface lag1 lag lag-type static
+commit now

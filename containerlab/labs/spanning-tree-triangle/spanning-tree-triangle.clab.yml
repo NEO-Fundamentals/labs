@@ -1,0 +1,90 @@
+# NEO lab for "Spanning Tree": three switches in a triangle, one host on each.
+# sw1, sw2, sw3 = Linux bridges (br0) inside Linux containers, running the kernel's spanning tree: classic 802.1D STP
+# (no RSTP, no MSTP). Timers are shortened for the lab: hello 1 s, max age 6 s, forward delay 4 s.
+# sw1 has bridge priority 4096 and becomes the root; sw2 and sw3 keep the default 32768. Each bridge gets a fixed MAC
+# (02:00:00:08:00:0N), so the tie between sw2 and sw3 always goes the same way: sw2 has the lower bridge ID.
+# All three hosts share one subnet, 10.8.0.0/24. All addresses are private (RFC 1918); management IPv6 is a ULA (fd00::/8).
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: spanning-tree-triangle
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    sw1:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "Linux bridge, STP priority 4096 (root)", graph-icon: switch, graph-level: 2, graph-posX: 420, graph-posY: 180}
+      exec:
+        - ip link add br0 type bridge stp_state 1 priority 4096 hello_time 100 max_age 600 forward_delay 400
+        - ip link set br0 address 02:00:00:08:00:01
+        - sh -c "for i in eth1 eth2 eth3; do ip link set $i master br0; done"
+        - ip link set br0 up
+    sw2:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "Linux bridge, STP priority 32768", graph-icon: switch, graph-level: 3, graph-posX: 180, graph-posY: 460}
+      exec:
+        - ip link add br0 type bridge stp_state 1 priority 32768 hello_time 100 max_age 600 forward_delay 400
+        - ip link set br0 address 02:00:00:08:00:02
+        - sh -c "for i in eth1 eth2 eth3; do ip link set $i master br0; done"
+        - ip link set br0 up
+    sw3:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "Linux bridge, STP priority 32768", graph-icon: switch, graph-level: 3, graph-posX: 660, graph-posY: 460}
+      exec:
+        - ip link add br0 type bridge stp_state 1 priority 32768 hello_time 100 max_age 600 forward_delay 400
+        - ip link set br0 address 02:00:00:08:00:03
+        - sh -c "for i in eth1 eth2 eth3; do ip link set $i master br0; done"
+        - ip link set br0 up
+    h1:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "10.8.0.11", graph-icon: host, graph-level: 1, graph-posX: 420, graph-posY: 0}
+      exec:
+        - ip addr add 10.8.0.11/24 dev eth1
+    h2:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "10.8.0.12", graph-icon: host, graph-level: 4, graph-posX: 0, graph-posY: 620}
+      exec:
+        - ip addr add 10.8.0.12/24 dev eth1
+    h3:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "10.8.0.13", graph-icon: host, graph-level: 4, graph-posX: 840, graph-posY: 620}
+      exec:
+        - ip addr add 10.8.0.13/24 dev eth1
+
+  links:
+    - type: veth  # triangle link sw1 - sw2
+      endpoints:
+        - {node: sw1, interface: eth1}
+        - {node: sw2, interface: eth1}
+      labels: {neo-net: "sw1-sw2", neo-capture: "sw2:eth1"}
+    - type: veth  # triangle link sw1 - sw3
+      endpoints:
+        - {node: sw1, interface: eth2}
+        - {node: sw3, interface: eth1}
+      labels: {neo-net: "sw1-sw3"}
+    - type: veth  # triangle link sw2 - sw3: sw3's end blocks
+      endpoints:
+        - {node: sw2, interface: eth2}
+        - {node: sw3, interface: eth2}
+      labels: {neo-net: "sw2-sw3 (sw3 end blocks)", neo-capture: "sw3:eth2"}
+    - type: veth
+      endpoints:
+        - {node: sw1, interface: eth3}
+        - {node: h1, interface: eth1}
+    - type: veth
+      endpoints:
+        - {node: sw2, interface: eth3}
+        - {node: h2, interface: eth1}
+    - type: veth
+      endpoints:
+        - {node: sw3, interface: eth3}
+        - {node: h3, interface: eth1}

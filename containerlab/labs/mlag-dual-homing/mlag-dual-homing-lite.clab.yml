@@ -1,0 +1,78 @@
+# Lighter variant of "Switch Stacking and MLAG" for an 8 GB virtual machine.
+# leaf1 is still Nokia SR Linux, with the same LACP system ID and key toward h1, plus a plain Layer 2
+# peer link to leaf2. leaf2 is Linux: an LACP bond that uses the same system ID, bridged to h3 and
+# the peer link. There is no EVPN, VXLAN or ESI in this file: those need two SR Linux leaves (the
+# full lab, about 4 GB). The hosts, addresses and the three exercises (one bundle, one member down,
+# two system IDs) are the same. Deploy this file OR the full lab, not both (they share the lab name
+# mlag-dual-homing). All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8).
+name: mlag-dual-homing
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    leaf1:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:26.7.2
+      labels: {neo-note: "SR Linux, lag1 to h1, L2 peer to leaf2", graph-icon: switch, graph-level: 2, graph-posX: 260, graph-posY: 300}
+      startup-config: configs/leaf1-lite.cli
+    leaf2:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "Linux bond0 (same LACP system ID) + br0", graph-icon: switch, graph-level: 2, graph-posX: 760, graph-posY: 300}
+      binds:
+        - configs/leaf2-bridge.sh:/tmp/leaf2-bridge.sh:ro
+      exec:
+        - bash /tmp/leaf2-bridge.sh
+    h1:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "bond0 (LACP) 10.44.0.11", graph-icon: host, graph-level: 3, graph-posX: 510, graph-posY: 560}
+      exec:
+        - ip link add bond0 type bond mode 802.3ad lacp_rate fast miimon 100
+        - ip link set eth1 down
+        - ip link set eth2 down
+        - ip link set eth1 master bond0
+        - ip link set eth2 master bond0
+        - ip link set bond0 up
+        - ip addr add 10.44.0.11/24 dev bond0
+    h2:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "10.44.0.12", graph-icon: host, graph-level: 3, graph-posX: 60, graph-posY: 560}
+      exec:
+        - ip addr add 10.44.0.12/24 dev eth1
+    h3:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "10.44.0.13", graph-icon: host, graph-level: 3, graph-posX: 960, graph-posY: 560}
+      exec:
+        - ip addr add 10.44.0.13/24 dev eth1
+
+  links:
+    - type: veth
+      endpoints:
+        - {node: leaf1, interface: ethernet-1/3}
+        - {node: leaf2, interface: eth3}
+      labels: {neo-net: "plain Layer 2 peer link"}
+    - type: veth
+      endpoints:
+        - {node: leaf1, interface: ethernet-1/1}
+        - {node: h1, interface: eth1}
+      labels: {neo-lag: "LAG lag1 / bond0", neo-capture: "h1:eth1"}
+    - type: veth
+      endpoints:
+        - {node: leaf2, interface: eth1}
+        - {node: h1, interface: eth2}
+      labels: {neo-lag: "LAG lag1 / bond0", neo-capture: "h1:eth2"}
+    - type: veth
+      endpoints:
+        - {node: leaf1, interface: ethernet-1/2}
+        - {node: h2, interface: eth1}
+    - type: veth
+      endpoints:
+        - {node: leaf2, interface: eth2}
+        - {node: h3, interface: eth1}

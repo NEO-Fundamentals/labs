@@ -1,0 +1,3 @@
+enter candidate
+set / interface lag1 lag lacp system-id-mac 02:00:00:44:00:aa
+commit now

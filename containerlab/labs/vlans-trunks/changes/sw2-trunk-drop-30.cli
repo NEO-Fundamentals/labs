@@ -1,0 +1,4 @@
+enter candidate
+delete / network-instance vlan30 interface ethernet-1/3.30
+delete / interface ethernet-1/3 subinterface 30
+commit now

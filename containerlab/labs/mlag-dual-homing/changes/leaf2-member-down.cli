@@ -1,0 +1,3 @@
+enter candidate
+set / interface ethernet-1/1 admin-state disable
+commit now

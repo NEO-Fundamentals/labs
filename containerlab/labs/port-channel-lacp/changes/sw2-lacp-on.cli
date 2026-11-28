@@ -1,0 +1,8 @@
+enter candidate
+set / interface lag1 lag lag-type lacp
+set / interface lag1 lag lacp interval FAST
+set / interface lag1 lag lacp lacp-mode ACTIVE
+set / interface lag1 lag lacp admin-key 1
+set / interface lag1 lag lacp system-id-mac 02:00:00:43:00:02
+set / interface lag1 lag lacp system-priority 32768
+commit now
