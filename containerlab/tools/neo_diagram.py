@@ -5,7 +5,8 @@ Author tool (viewers do not need it). For a lab file it:
   1. exports the topology with clab2drawio (the same exporter behind `containerlab graph --drawio`),
   2. restyles nodes that carry a `neo-role` label (firewall, load-balancer, server, sensor) and adds a
      second label line from `neo-note`,
-  3. draws one oval across the member links of each LAG (link label `neo-lag: "LAG lag1"`),
+  3. draws one oval across the member links of each LAG (link label `neo-lag: "LAG lag1"`); when the members
+     run from one node to two others (a host bundle to two switches: MLAG, ESI-LAG) the one oval sits near that node,
   4. writes each link's subnet (link label `neo-net: "10.0.12.0/30"`) and a capture badge
      (link label `neo-capture: "edge-b:eth1"`) on the link,
   5. saves <lab>.drawio and renders <lab>.png with draw.io desktop (the real renderer).
@@ -195,7 +196,7 @@ def main():
         c.set("style", set_style(c.get("style", ""), **LABEL_SIDES[best[1]]))
         if best[0]: print(f"layout: text of {node.split('-')[-1]} still touches {best[0]} item(s)")
     # 3-4. LAG ovals, capture badges, subnet text
-    lags = collections.defaultdict(list); todo = []
+    lags = collections.defaultdict(list); todo = []   # tag -> [(node a, node b, a point, b point)]
     for l in t.get("links") or []:
         lab = l.get("labels") or {}; eps = endpoints(l)
         if len(eps) != 2: continue
@@ -203,9 +204,20 @@ def main():
         lid = next((k for k in links if k.endswith(f"{nid(an)}:{ia}:{nid(bn)}:{ib}") or k.endswith(f"{nid(bn)}:{ib}:{nid(an)}:{ia}")), None)
         if lid is None: raise SystemExit(f"link not found in export: {eps}")
         a_pt, b_pt = segs[lid]; mid = ((a_pt[0] + b_pt[0]) / 2, (a_pt[1] + b_pt[1]) / 2)
-        if lab.get("neo-lag"): lags[(lab["neo-lag"], tuple(sorted(x for x, _ in eps)))].append(mid)
+        if lab.get("neo-lag"): lags[lab["neo-lag"]].append((an, bn, a_pt, b_pt))
         todo.append((lid, a_pt, b_pt, lab))
-    for (tag, _), mids in lags.items():
+    def lag_groups(tag, mem):
+        "One oval per bundle: members between the same two nodes -> across the link middles; members that share one node"
+        "(a host bundle to two switches) -> across the members near the shared node; otherwise one oval per node pair."
+        pairs = {tuple(sorted((an, bn))) for an, bn, _, _ in mem}
+        if len(pairs) == 1: return [[((a[0] + b[0]) / 2, (a[1] + b[1]) / 2) for _, _, a, b in mem]]
+        common = set.intersection(*({an, bn} for an, bn, _, _ in mem))
+        if len(common) == 1:
+            c = common.pop()
+            return [[(a[0] + (b[0] - a[0]) * .3, a[1] + (b[1] - a[1]) * .3) if an == c else (b[0] + (a[0] - b[0]) * .3, b[1] + (a[1] - b[1]) * .3)
+                     for an, _, a, b in mem]]
+        return [[((a[0] + b[0]) / 2, (a[1] + b[1]) / 2) for an, bn, a, b in mem if tuple(sorted((an, bn))) == pr] for pr in sorted(pairs)]
+    for tag, mids in [(tg, g) for tg, mem in lags.items() for g in lag_groups(tg, mem)]:
         xs = [m[0] for m in mids]; ys = [m[1] for m in mids]
         cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
         w = (max(xs) - min(xs)) + 84; h = (max(ys) - min(ys)) + 64

@@ -3,13 +3,14 @@
 Usage: neo_lint.py <schema.json> <labs-dir | lab-dir | file.clab.yml> [...]
   <schema.json> is the Containerlab schema for the version the labs target:
   https://raw.githubusercontent.com/srl-labs/containerlab/v0.83.0/schemas/clab.schema.json
-Checks per lab: the lab file is valid against the schema; folder name, lab file name and `name:` agree; every node has a
+Checks per lab: the lab file is valid against the schema; folder name, lab file name and `name:` agree (a `<lab>-lite.clab.yml` file keeps `name: <lab>`); every node has a
 graph-icon label; node kinds are SR Linux (nokia_srlinux), FRR (frr) or plain Linux containers (linux), at most 2 SR Linux
 nodes; the mgmt IPv6 subnet is inside fd00::/8; every IPv4 address in the lab file, configs, scripts and README is inside
 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16 (documentation ranges 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24 and the
-benchmark range 198.18.0.0/15 are named and rejected); every IPv6 address in text is inside fd00::/8 (link-local fe80::/10 and
-multicast ff00::/8 are allowed, documentation prefixes 2001:db8::/32 and 3fff::/20 are rejected); every AS number is private
-(64512-65534 or 4200000000-4294967294); README.md exists; a banned assistant brand name does not appear.
+benchmark range 198.18.0.0/15 are named and rejected; netmasks, 0.0.0.0, 255.255.255.255 and the routing multicast groups
+224.0.0.5 (OSPF) and 224.0.0.9 (RIP) are allowed); every IPv6 address in text is inside fd00::/8 (link-local fe80::/10 and
+multicast ff00::/8 are allowed, documentation prefixes 2001:db8::/32 and 3fff::/20 are rejected); every AS number in BGP configuration statements (after autonomous-system, remote-as, peer-as, router bgp, local-as or prepend) is private
+(64512-65534 or 4200000000-4294967294); AS numbers written in prose are not checked; README.md exists; a banned assistant brand name does not appear.
 Not checked: addresses inside binary files (captures, images), and anything the regular expressions below do not recognise.
 Exit code 1 if any lab fails. Needs pyyaml and jsonschema."""
 import sys, os, re, json, ipaddress
@@ -18,7 +19,7 @@ import yaml, jsonschema
 NOS_OK = {"nokia_srlinux", "frr", "linux"}
 IP4 = re.compile(r"(?<![\d.])(\d{1,3}(?:\.\d{1,3}){3})(?:/\d{1,2})?(?![\d.])")
 ASN = re.compile(r"(?:autonomous-system|remote-as|peer-as|router bgp|local-as|prepend)((?:\s+\d+)+)")
-ALLOWED_NON_PRIVATE = {"0.0.0.0", "255.255.255.255", "255.255.255.252", "255.255.255.0", "255.255.255.192", "255.255.255.128", "224.0.0.9"}
+ALLOWED_NON_PRIVATE = {"0.0.0.0", "255.255.255.255", "255.255.255.252", "255.255.255.0", "255.255.255.192", "255.255.255.128", "224.0.0.5", "224.0.0.9"}
 PRIVATE_V4 = [ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")]
 DOC_V4 = {ipaddress.ip_network(n): n for n in ("192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24", "198.18.0.0/15")}
 IP6 = re.compile(r"(?<![0-9A-Za-z:.])[0-9A-Fa-f]{0,4}(?::[0-9A-Fa-f]{0,4}){2,7}(?:/\d{1,3})?(?![0-9A-Za-z:])")
@@ -44,10 +45,22 @@ def check_v6(a):
 
 def lint(schema, d):
     """d is a lab folder (<d>/<d>.clab.yml, README.md and everything under it are checked) or a single .clab.yml file
-    (only that file is checked; name must equal the file name without .clab.yml)."""
+    (only that file is checked; name must equal the file name without .clab.yml, except a lighter file named
+    <lab>-lite.clab.yml keeps name: <lab> so container names stay clab-<lab>-*)."""
     errs = []; single = d.endswith(".clab.yml")
-    if single: f = d; name = os.path.basename(d)[:-len(".clab.yml")]; d = os.path.dirname(os.path.abspath(f))
-    else: name = os.path.basename(d.rstrip("/")); f = os.path.join(d, name + ".clab.yml")
+    if single:
+        f = d
+        fname = os.path.basename(d)[:-len(".clab.yml")]
+        d = os.path.dirname(os.path.abspath(f))
+        folder = os.path.basename(d.rstrip("/"))
+        if fname.endswith("-lite"):
+            name = fname[:-len("-lite")]
+            if folder and folder != name:
+                errs.append(f"lite file {fname}.clab.yml is not in folder {name}")
+        else:
+            name = fname
+    else:
+        name = os.path.basename(d.rstrip("/")); f = os.path.join(d, name + ".clab.yml")
     if not os.path.exists(f): return [f"missing {name}.clab.yml"]
     topo = yaml.safe_load(open(f))
     for e in jsonschema.Draft7Validator(schema).iter_errors(topo): errs.append("schema: " + e.message[:160])

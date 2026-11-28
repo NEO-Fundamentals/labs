@@ -2,7 +2,12 @@
 # Usage: smoke-test.sh <image>   Checks every tool the labs rely on is present and that nftables and dnsmasq really run.
 IMG=${1:-ghcr.io/neo-fundamentals/neo-tools:1.0.0}
 fail=0
-for t in ip ping tcpdump nft conntrack iperf3 nc dig dnsmasq dhclient sshd ssh haproxy keepalived snmpd snmpget python3 curl ethtool traceroute swanctl; do
+# The published image is 1.0.0 (see tools/README.md). Suricata and conntrackd ship only in 1.1.0, so require them only when that tag is under test.
+TOOLS="ip ping tcpdump nft conntrack iperf3 nc dig dnsmasq dhclient sshd ssh haproxy keepalived snmpd snmpget python3 curl ethtool traceroute swanctl"
+tag=${IMG##*:}
+tag=${tag%%@*}
+[ "$tag" = "1.1.0" ] && TOOLS="$TOOLS suricata conntrackd"
+for t in $TOOLS; do
   if docker run --rm --entrypoint sh "$IMG" -c "command -v $t >/dev/null || ls /usr/sbin/$t /usr/lib/ipsec/$t >/dev/null 2>&1"; then echo "ok   $t"; else echo "MISSING $t"; fail=1; fi
 done
 docker run --rm --entrypoint sh "$IMG" -c 'ls /etc/ssh/ssh_host_* >/dev/null 2>&1' && { echo "FAIL the image contains ssh host keys"; fail=1; } || echo "ok   no ssh host keys baked into the image"
