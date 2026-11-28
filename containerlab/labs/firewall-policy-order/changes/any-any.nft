@@ -1,0 +1,3 @@
+# Exercise 5: one broad rule at the TOP of the chain. It accepts everything, so no rule below it is ever reached.
+# Typical "temporary" troubleshooting rule. Remove it by its handle (see the README), or load a policy file again.
+insert rule inet fw forward counter accept comment "TEMP any-any (troubleshooting)"

@@ -1,0 +1,15 @@
+# fw: back to the stateful zone policy (the same as configs/fw-zones.nft, loaded at deploy). eth1 = inside, eth2 = outside, eth3 = dmz.
+# Read it top to bottom: the first rule that matches decides. Anything no rule accepts reaches the last counter
+# and then the chain policy: drop (default deny).
+table inet fw
+delete table inet fw
+table inet fw {
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        ct state established,related counter accept comment "replies and follow-ups"
+        ct state invalid counter drop comment "not part of any known connection"
+        iifname "eth1" oifname "eth2" ct state new counter accept comment "inside -> outside"
+        oifname "eth3" tcp dport 80 ct state new counter accept comment "any zone -> dmz web"
+        counter comment "default deny"
+    }
+}

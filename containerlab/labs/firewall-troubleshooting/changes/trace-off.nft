@@ -1,0 +1,2 @@
+# Stop the packet trace: empty the chain "pre" again.
+flush chain ip fw pre

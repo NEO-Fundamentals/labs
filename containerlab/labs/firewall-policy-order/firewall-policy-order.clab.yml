@@ -1,0 +1,76 @@
+# NEO lab for "Security policy rules": the same one-firewall, three-zone layout as firewall-zones, used to study rule
+# order, objects (named sets), shadowed and overly broad rules, logging, and drop versus reject.
+# fw = a Linux router running nftables with connection tracking (the NEO helper image). It is a Linux packet filter,
+# not a commercial firewall product. Its ports: eth1 = inside zone, eth2 = outside zone, eth3 = dmz.
+# host-a (inside) runs a web server on port 8080; host-b (outside) runs one on port 80; host-c (dmz) runs one on port 80
+# and answers on two addresses, 10.14.3.30 and 10.14.3.31 (the second is used in the objects exercise).
+# At deploy fw loads configs/policy-v1.nft (the lesson's first policy). The exercises load other policies from changes/.
+# All addresses are private (RFC 1918): inside 10.14.1.0/24, outside 10.14.2.0/24, dmz 10.14.3.0/24. The outside zone
+# PLAYS the Internet; the lab never touches the real Internet. The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: firewall-policy-order
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    host-a:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "inside, 10.14.1.10, web :8080", graph-icon: host, neo-role: server, graph-level: 1, graph-posX: 100, graph-posY: 200}
+      exec:
+        - ip addr add 10.14.1.10/24 dev eth1
+        - ip route replace default via 10.14.1.1
+        - sh -c 'echo "hello from host-a (inside, 10.14.1.10)" > /srv/www/index.html'
+        - sh -c 'nohup python3 -m http.server 8080 --directory /srv/www >/var/log/web.log 2>&1 &'
+    fw:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "Linux nftables + conntrack", graph-icon: router, neo-role: firewall, graph-level: 2, graph-posX: 400, graph-posY: 200}
+      binds:
+        - configs:/neo/configs:ro
+      exec:
+        - ip addr add 10.14.1.1/24 dev eth1
+        - ip addr add 10.14.2.1/24 dev eth2
+        - ip addr add 10.14.3.1/24 dev eth3
+        - sysctl -q -w net.ipv4.ip_forward=1
+        - nft -f /neo/configs/policy-v1.nft
+    host-b:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "outside, 10.14.2.20, web :80", graph-icon: host, graph-level: 3, graph-posX: 700, graph-posY: 200}
+      exec:
+        - ip addr add 10.14.2.20/24 dev eth1
+        - ip route replace default via 10.14.2.1
+        - sh -c 'echo "hello from host-b (outside, 10.14.2.20)" > /srv/www/index.html'
+        - sh -c 'nohup python3 -m http.server 80 --directory /srv/www >/var/log/web.log 2>&1 &'
+    host-c:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "dmz, 10.14.3.30 + .31, web :80", graph-icon: host, neo-role: server, graph-level: 3, graph-posX: 400, graph-posY: 450}
+      exec:
+        - ip addr add 10.14.3.30/24 dev eth1
+        - ip addr add 10.14.3.31/24 dev eth1
+        - ip route replace default via 10.14.3.1
+        - sh -c 'echo "hello from host-c (dmz web server)" > /srv/www/index.html'
+        - sh -c 'nohup python3 -m http.server 80 --directory /srv/www >/var/log/web.log 2>&1 &'
+
+  links:
+    - type: veth  # inside zone, 10.14.1.0/24
+      endpoints:
+        - {node: host-a, interface: eth1}
+        - {node: fw, interface: eth1}
+      labels: {neo-net: "inside 10.14.1.0/24"}
+    - type: veth  # outside zone, 10.14.2.0/24 (plays the Internet)
+      endpoints:
+        - {node: fw, interface: eth2}
+        - {node: host-b, interface: eth1}
+      labels: {neo-net: "outside 10.14.2.0/24", neo-capture: "fw:eth2"}
+    - type: veth  # dmz, 10.14.3.0/24
+      endpoints:
+        - {node: fw, interface: eth3}
+        - {node: host-c, interface: eth1}
+      labels: {neo-net: "dmz 10.14.3.0/24", neo-capture: "fw:eth3"}

@@ -1,0 +1,20 @@
+# fw: the lesson's first policy (loaded at deploy). eth1 = inside, eth2 = outside, eth3 = dmz.
+# Read it top to bottom: the first rule with a verdict (accept or drop) that matches decides.
+# web_servers is an OBJECT (a named set): rules use it by name, and changing the set changes every rule that uses it.
+# R30 is meant to keep host-b away from the web servers, but R20 above it already accepts that traffic: R30 is SHADOWED.
+table inet fw
+delete table inet fw
+table inet fw {
+    set web_servers {
+        type ipv4_addr
+        elements = { 10.14.3.30 }
+    }
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        ct state established,related counter accept comment "replies"
+        iifname "eth1" oifname "eth2" ct state new counter accept comment "R10 inside -> outside"
+        oifname "eth3" ip daddr @web_servers tcp dport { 80, 443 } ct state new counter accept comment "R20 any -> web servers"
+        iifname "eth2" ip saddr 10.14.2.20 oifname "eth3" tcp dport 80 counter drop comment "R30 block host-b from the dmz web"
+        counter comment "cleanup: default deny"
+    }
+}

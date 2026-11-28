@@ -1,0 +1,69 @@
+# NEO lab for "Firewall troubleshooting": prove whether the firewall dropped a connection, using captures on both sides
+# of the firewall, rule counters, a drop record, a packet trace, the session table and the server's own logs.
+# fw = a Linux router running nftables with connection tracking (the NEO helper image). It is a Linux packet filter,
+# not a commercial firewall product. Its ports: eth1 = inside, eth2 = outside.
+# host-a (inside) is the client. host-b (outside) is the server: web on 80, "the app" on 8443, web on 9100 and a
+# session (tick) server on 7000; nothing listens on 9000; host-b's own host firewall silently drops port 9100.
+# At deploy fw loads configs/fw-rules.nft and host-b loads configs/host-b-rules.nft. The exercise change is in changes/.
+# All addresses are private (RFC 1918): inside 10.19.1.0/24, outside 10.19.2.0/24. The management network uses a ULA
+# (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: firewall-troubleshooting
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    host-a:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "inside client, 10.19.1.10", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 200}
+      binds:
+        - scripts:/neo/scripts:ro
+      exec:
+        - ip addr add 10.19.1.10/24 dev eth1
+        - ip route replace default via 10.19.1.1
+    fw:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "Linux nftables + conntrack", graph-icon: router, neo-role: firewall, graph-level: 2, graph-posX: 400, graph-posY: 200}
+      binds:
+        - configs:/neo/configs:ro
+      exec:
+        - ip addr add 10.19.1.1/24 dev eth1
+        - ip addr add 10.19.2.1/24 dev eth2
+        - sysctl -q -w net.ipv4.ip_forward=1
+        # strict TCP tracking: a packet in the middle of a connection fw has not seen is not taken as a new session
+        - sysctl -q -w net.netfilter.nf_conntrack_tcp_loose=0
+        - nft -f /neo/configs/fw-rules.nft
+    host-b:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "outside server, 10.19.2.80: web 80, app 8443, 9100, tick 7000", graph-icon: host, neo-role: server, graph-level: 3, graph-posX: 700, graph-posY: 200}
+      binds:
+        - configs:/neo/configs:ro
+        - scripts:/neo/scripts:ro
+      exec:
+        - ip addr add 10.19.2.80/24 dev eth1
+        - ip route replace default via 10.19.2.1
+        - nft -f /neo/configs/host-b-rules.nft
+        - sh -c 'echo "hello from host-b (outside, 10.19.2.80)" > /srv/www/index.html'
+        - sh -c 'nohup python3 -m http.server 80 --directory /srv/www >/var/log/web_80.log 2>&1 &'
+        - sh -c 'nohup python3 -m http.server 8443 --directory /srv/www >/var/log/web_8443.log 2>&1 &'
+        - sh -c 'nohup python3 -m http.server 9100 --directory /srv/www >/var/log/web_9100.log 2>&1 &'
+        - sh -c 'nohup python3 /neo/scripts/tick_server.py 0.0.0.0 7000 >/var/log/tick.log 2>&1 &'
+
+  links:
+    - type: veth  # inside, 10.19.1.0/24
+      endpoints:
+        - {node: host-a, interface: eth1}
+        - {node: fw, interface: eth1}
+      labels: {neo-net: "inside 10.19.1.0/24", neo-capture: "fw:eth1"}
+    - type: veth  # outside, 10.19.2.0/24
+      endpoints:
+        - {node: fw, interface: eth2}
+        - {node: host-b, interface: eth1}
+      labels: {neo-net: "outside 10.19.2.0/24", neo-capture: "fw:eth2"}

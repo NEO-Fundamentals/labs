@@ -1,0 +1,2 @@
+# Stop tracing.
+delete table ip fwtrace

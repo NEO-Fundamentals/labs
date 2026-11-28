@@ -1,0 +1,12 @@
+# Source NAT with masquerade: connections leaving on eth2 (outside) get fw's outside address 10.15.2.1 as source.
+table ip fw_nat
+delete table ip fw_nat
+table ip fw_nat {
+    chain prerouting {
+        type nat hook prerouting priority dstnat; policy accept;
+    }
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        oifname "eth2" counter masquerade comment "inside -> outside: hide behind 10.15.2.1"
+    }
+}

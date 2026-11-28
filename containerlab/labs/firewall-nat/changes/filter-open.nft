@@ -1,0 +1,9 @@
+# No filtering: fw only routes (the deploy state of the filter table).
+table inet fw
+delete table inet fw
+table inet fw {
+    chain forward {
+        type filter hook forward priority filter; policy accept;
+        counter comment "no filtering: fw only routes"
+    }
+}

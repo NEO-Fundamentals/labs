@@ -1,0 +1,7 @@
+# fw: mark every forwarded packet for tracing, so "nft monitor trace" shows which rule decides it.
+table inet fwtrace {
+    chain pre {
+        type filter hook forward priority -10; policy accept;
+        meta nftrace set 1
+    }
+}

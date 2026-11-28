@@ -1,0 +1,5 @@
+# Packet trace (exercises 3 and 4): mark host-a's packets to port 8443 and host-b's replies from the session server on
+# port 7000, as they arrive at fw. Read with  nft monitor trace . Switch off with changes/trace-off.nft.
+flush chain ip fw pre
+add rule ip fw pre ip saddr 10.19.1.10 tcp dport 8443 meta nftrace set 1
+add rule ip fw pre ip saddr 10.19.2.80 tcp sport 7000 meta nftrace set 1

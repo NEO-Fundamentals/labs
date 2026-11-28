@@ -1,0 +1,28 @@
+# fw: the lab firewall (loaded at deploy). eth1 = inside, eth2 = outside.
+# Default drop; replies of known sessions; packets of no known session dropped; NEW sessions from inside to outside only
+# to TCP 80, 7000, 9000 and 9100, and only on a SYN. Every other TCP packet is recorded per flow in the set "drops"
+# (the lab's drop record: source . destination . port, with a packet counter, kept 10 minutes), then logged and dropped
+# by the counted rule "everything else". The log lines reach the VM's kernel log only after
+#   sudo sysctl -w net.netfilter.nf_log_all_netns=1   (see the README).
+# The chain "pre" is empty; changes/trace-on.nft adds the packet-trace rules there.
+table ip fw
+delete table ip fw
+table ip fw {
+    set drops {
+        type ipv4_addr . ipv4_addr . inet_service
+        flags dynamic,timeout
+        timeout 10m
+        counter
+    }
+    chain pre {
+        type filter hook prerouting priority raw; policy accept;
+    }
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        ct state established,related counter accept comment "replies of known sessions"
+        ct state invalid counter drop comment "no session for this packet"
+        iifname "eth1" oifname "eth2" tcp dport { 80, 7000, 9000, 9100 } tcp flags syn ct state new counter accept comment "web and apps"
+        meta l4proto tcp update @drops { ip saddr . ip daddr . tcp dport } comment "drop record"
+        log prefix "fw19-drop " counter drop comment "everything else"
+    }
+}

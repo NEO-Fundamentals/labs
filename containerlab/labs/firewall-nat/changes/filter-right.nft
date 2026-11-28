@@ -1,0 +1,13 @@
+# The corrected filter: the port-forward rule matches the real address and port after DNAT, and only
+# connections that were translated by a port forward (ct status dnat).
+table inet fw
+delete table inet fw
+table inet fw {
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        ct state established,related counter accept comment "replies"
+        iifname "eth1" oifname "eth2" ip saddr 10.15.1.0/24 ct state new counter accept comment "inside -> outside (private source)"
+        iifname "eth2" ip daddr 10.15.3.30 tcp dport 80 ct status dnat ct state new counter accept comment "port forward: real address after DNAT"
+        counter comment "cleanup: default deny"
+    }
+}

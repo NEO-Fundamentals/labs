@@ -1,0 +1,127 @@
+# NEO lab for "Firewall high availability": an active/passive firewall pair with a shared gateway address (VRRP),
+# failover testing, session sync with conntrackd, and what happens to existing sessions when the firewall changes.
+# fw1, fw2 = Linux routers running nftables with connection tracking, keepalived (VRRP) and conntrackd (session sync),
+# the NEO helper image 1.1.0. They are a Linux packet filter pair, not a commercial firewall cluster.
+# Ports: eth1 = inside, eth2 = outside, eth3 = dedicated HA / session-sync link (10.18.3.0/24).
+# The pair shares the virtual addresses 10.18.1.1 (inside) and 10.18.2.1 (outside); the hosts use them as gateway.
+# fw1 has the higher VRRP priority, so it is the active firewall when both are healthy.
+# Both firewalls use strict TCP state tracking. conntrackd copies the session table over eth3; exercise 4 stops it
+# to show a failover without sync, exercise 6 leaves it running.
+# sw-in, sw-out = plain Linux bridges (no filtering), one per side, so both firewalls and the host share each LAN.
+# All addresses are private (RFC 1918): inside 10.18.1.0/24, outside 10.18.2.0/24, HA 10.18.3.0/24. The management
+# network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: firewall-ha-vrrp
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    host-a:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "inside, 10.18.1.10, gw 10.18.1.1 (virtual)", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 250}
+      binds:
+        - scripts:/neo/scripts:ro
+      exec:
+        - ip addr add 10.18.1.10/24 dev eth1
+        - ip route replace default via 10.18.1.1
+    sw-in:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "inside switch (Linux bridge)", graph-icon: switch, graph-level: 2, graph-posX: 440, graph-posY: 250}
+      exec:
+        - ip link add br0 type bridge
+        - ip link set eth1 master br0
+        - ip link set eth2 master br0
+        - ip link set eth3 master br0
+        - ip link set br0 up
+    fw1:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.1.0
+      labels: {neo-note: "nftables + keepalived + conntrackd, priority 150", graph-icon: router, neo-role: firewall, graph-level: 3, graph-posX: 630, graph-posY: 120}
+      binds:
+        - configs:/neo/configs:ro
+        - scripts:/neo/scripts:ro
+      exec:
+        - ip addr add 10.18.1.2/24 dev eth1
+        - ip addr add 10.18.2.2/24 dev eth2
+        - ip addr add 10.18.3.2/24 dev eth3
+        - sysctl -q -w net.ipv4.ip_forward=1
+        - sysctl -q -w net.netfilter.nf_conntrack_tcp_loose=0
+        - nft -f /neo/configs/fw-rules.nft
+        - sh -c '/neo/scripts/start-fw.sh fw1'
+    fw2:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.1.0
+      labels: {neo-note: "nftables + keepalived + conntrackd, priority 100", graph-icon: router, neo-role: firewall, graph-level: 3, graph-posX: 630, graph-posY: 380}
+      binds:
+        - configs:/neo/configs:ro
+        - scripts:/neo/scripts:ro
+      exec:
+        - ip addr add 10.18.1.3/24 dev eth1
+        - ip addr add 10.18.2.3/24 dev eth2
+        - ip addr add 10.18.3.3/24 dev eth3
+        - sysctl -q -w net.ipv4.ip_forward=1
+        - sysctl -q -w net.netfilter.nf_conntrack_tcp_loose=0
+        - nft -f /neo/configs/fw-rules.nft
+        - sh -c '/neo/scripts/start-fw.sh fw2'
+    sw-out:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "outside switch (Linux bridge)", graph-icon: switch, graph-level: 4, graph-posX: 820, graph-posY: 250}
+      exec:
+        - ip link add br0 type bridge
+        - ip link set eth1 master br0
+        - ip link set eth2 master br0
+        - ip link set eth3 master br0
+        - ip link set br0 up
+    host-b:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "outside, 10.18.2.20, web :80, sessions :7000", graph-icon: host, neo-role: server, graph-level: 5, graph-posX: 1010, graph-posY: 250}
+      binds:
+        - scripts:/neo/scripts:ro
+      exec:
+        - ip addr add 10.18.2.20/24 dev eth1
+        - ip route replace 10.18.1.0/24 via 10.18.2.1
+        - sh -c 'echo "10.18.2.20 $(hostname)" >> /etc/hosts'
+        - sh -c 'echo "hello from host-b (outside, 10.18.2.20)" > /srv/www/index.html'
+        - sh -c 'nohup python3 -m http.server 80 --directory /srv/www >/var/log/web.log 2>&1 &'
+        - sh -c 'nohup python3 -u /neo/scripts/tick_server.py 0.0.0.0 7000 >/var/log/tick.log 2>&1 &'
+
+  links:
+    - type: veth  # inside LAN, 10.18.1.0/24: host-a
+      endpoints:
+        - {node: host-a, interface: eth1}
+        - {node: sw-in, interface: eth1}
+      labels: {neo-net: "inside 10.18.1.0/24", neo-capture: "host-a:eth1"}
+    - type: veth  # inside LAN: fw1
+      endpoints:
+        - {node: fw1, interface: eth1}
+        - {node: sw-in, interface: eth2}
+    - type: veth  # inside LAN: fw2
+      endpoints:
+        - {node: fw2, interface: eth1}
+        - {node: sw-in, interface: eth3}
+    - type: veth  # outside LAN, 10.18.2.0/24: fw1
+      endpoints:
+        - {node: fw1, interface: eth2}
+        - {node: sw-out, interface: eth1}
+      labels: {neo-net: "outside 10.18.2.0/24"}
+    - type: veth  # outside LAN: fw2
+      endpoints:
+        - {node: fw2, interface: eth2}
+        - {node: sw-out, interface: eth2}
+    - type: veth  # outside LAN: host-b
+      endpoints:
+        - {node: host-b, interface: eth1}
+        - {node: sw-out, interface: eth3}
+    - type: veth  # dedicated HA / session-sync link
+      endpoints:
+        - {node: fw1, interface: eth3}
+        - {node: fw2, interface: eth3}
+      labels: {neo-net: "HA 10.18.3.0/24"}

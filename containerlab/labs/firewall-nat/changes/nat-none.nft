@@ -1,0 +1,11 @@
+# NAT table emptied: no translation at all (exercise 1). The filter table is not touched.
+table ip fw_nat
+delete table ip fw_nat
+table ip fw_nat {
+    chain prerouting {
+        type nat hook prerouting priority dstnat; policy accept;
+    }
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+    }
+}

@@ -1,0 +1,105 @@
+# NEO lab for "NAT on firewalls": source NAT, destination NAT (port forwarding), how NAT and the filter rules work
+# together, and hairpin NAT. The firewall-zones layout plus a second inside host on a small inside switch.
+# fw = a Linux router running nftables with connection tracking (the NEO helper image). It is a Linux packet filter,
+# not a commercial firewall product. Its ports: eth1 = inside, eth2 = outside, eth3 = dmz.
+# fw's outside address 10.15.2.1 PLAYS the firewall's public address; the outside zone 10.15.2.0/24 plays the Internet.
+# host-b has NO default route, like an Internet host that knows nothing about a private network: it can only answer
+# addresses in 10.15.2.0/24. The lab never touches the real Internet.
+# sw = a plain Linux bridge (no filtering) joining fw, host-a and host-d in the inside LAN, so host-a and host-d reach
+# each other directly, like two hosts on one switch (needed for the hairpin exercise).
+# At deploy fw loads configs/fw-start.nft: no NAT and no filtering (fw only routes). The exercises load changes/.
+# All addresses are private (RFC 1918): inside 10.15.1.0/24, outside 10.15.2.0/24, dmz 10.15.3.0/24. The management
+# network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: firewall-nat
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    host-a:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "inside, 10.15.1.10", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 100}
+      exec:
+        - ip addr add 10.15.1.10/24 dev eth1
+        - ip route replace default via 10.15.1.1
+    host-d:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "inside, 10.15.1.40, web :8080", graph-icon: host, neo-role: server, graph-level: 1, graph-posX: 100, graph-posY: 300}
+      exec:
+        - ip addr add 10.15.1.40/24 dev eth1
+        - ip route replace default via 10.15.1.1
+        - sh -c 'echo "hello from host-d (inside, 10.15.1.40)" > /srv/www/index.html'
+        - sh -c 'nohup python3 -m http.server 8080 --directory /srv/www >/var/log/web.log 2>&1 &'
+    sw:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "inside switch (Linux bridge)", graph-icon: switch, graph-level: 2, graph-posX: 250, graph-posY: 200}
+      exec:
+        - ip link add br0 type bridge
+        - ip link set eth1 master br0
+        - ip link set eth2 master br0
+        - ip link set eth3 master br0
+        - ip link set br0 up
+    fw:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "Linux nftables NAT + conntrack, outside 10.15.2.1 = public", graph-icon: router, neo-role: firewall, graph-level: 3, graph-posX: 450, graph-posY: 200}
+      binds:
+        - configs:/neo/configs:ro
+      exec:
+        - ip addr add 10.15.1.1/24 dev eth1
+        - ip addr add 10.15.2.1/24 dev eth2
+        - ip addr add 10.15.3.1/24 dev eth3
+        - sysctl -q -w net.ipv4.ip_forward=1
+        - nft -f /neo/configs/fw-start.nft
+    host-b:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "outside, 10.15.2.20, web :80, no default route", graph-icon: host, graph-level: 4, graph-posX: 700, graph-posY: 200}
+      exec:
+        - ip addr add 10.15.2.20/24 dev eth1
+        # no default route at all (not even the management one): host-b knows only 10.15.2.0/24
+        - ip route del default
+        - sh -c 'echo "hello from host-b (outside, 10.15.2.20)" > /srv/www/index.html'
+        - sh -c 'nohup python3 -m http.server 80 --directory /srv/www >/var/log/web.log 2>&1 &'
+    host-c:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "dmz, 10.15.3.30, web :80", graph-icon: host, neo-role: server, graph-level: 4, graph-posX: 450, graph-posY: 450}
+      exec:
+        - ip addr add 10.15.3.30/24 dev eth1
+        - ip route replace default via 10.15.3.1
+        - sh -c 'echo "hello from host-c (dmz, 10.15.3.30)" > /srv/www/index.html'
+        - sh -c 'nohup python3 -m http.server 80 --directory /srv/www >/var/log/web.log 2>&1 &'
+
+  links:
+    - type: veth  # inside LAN, 10.15.1.0/24: fw to the inside switch
+      endpoints:
+        - {node: fw, interface: eth1}
+        - {node: sw, interface: eth1}
+      labels: {neo-net: "inside 10.15.1.0/24"}
+    - type: veth  # inside LAN: host-a
+      endpoints:
+        - {node: host-a, interface: eth1}
+        - {node: sw, interface: eth2}
+      labels: {neo-capture: "host-a:eth1"}
+    - type: veth  # inside LAN: host-d
+      endpoints:
+        - {node: host-d, interface: eth1}
+        - {node: sw, interface: eth3}
+    - type: veth  # outside, 10.15.2.0/24 (plays the Internet)
+      endpoints:
+        - {node: fw, interface: eth2}
+        - {node: host-b, interface: eth1}
+      labels: {neo-net: "outside 10.15.2.0/24", neo-capture: "host-b:eth1"}
+    - type: veth  # dmz, 10.15.3.0/24
+      endpoints:
+        - {node: fw, interface: eth3}
+        - {node: host-c, interface: eth1}
+      labels: {neo-net: "dmz 10.15.3.0/24", neo-capture: "fw:eth3"}

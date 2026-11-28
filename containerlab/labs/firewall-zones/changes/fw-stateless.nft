@@ -1,0 +1,13 @@
+# fw: a STATELESS policy (the mistake). It looks at ports, not at connections:
+# web requests out are allowed, and "anything from source port 80" is allowed back in, to let the replies through.
+# The sender chooses its source port, so the second rule also lets in NEW connections from outside. Do not do this.
+table inet fw
+delete table inet fw
+table inet fw {
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        iifname "eth1" oifname "eth2" tcp dport 80 counter accept comment "no state: requests out to port 80"
+        iifname "eth2" oifname "eth1" tcp sport 80 counter accept comment "no state: anything from port 80 back in"
+        counter comment "default deny"
+    }
+}

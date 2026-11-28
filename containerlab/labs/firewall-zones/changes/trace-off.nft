@@ -1,0 +1,2 @@
+# fw: stop tracing.
+delete table inet fwtrace

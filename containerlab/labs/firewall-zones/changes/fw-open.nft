@@ -1,0 +1,3 @@
+# fw: no filtering at all. fw is now only a router: every zone reaches every other one.
+table inet fw
+delete table inet fw

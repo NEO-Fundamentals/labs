@@ -1,0 +1,9 @@
+# host-b's OWN host firewall (a filter on the server itself, not the lab firewall fw): it silently drops port 9100.
+table ip host
+delete table ip host
+table ip host {
+    chain input {
+        type filter hook input priority filter; policy accept;
+        tcp dport 9100 counter drop comment "host firewall on host-b"
+    }
+}

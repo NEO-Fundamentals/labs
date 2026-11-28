@@ -1,0 +1,12 @@
+# The same source NAT written with a fixed address (snat to). Same result here; masquerade follows the port's address.
+table ip fw_nat
+delete table ip fw_nat
+table ip fw_nat {
+    chain prerouting {
+        type nat hook prerouting priority dstnat; policy accept;
+    }
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        oifname "eth2" counter snat to 10.15.2.1 comment "inside -> outside: always 10.15.2.1"
+    }
+}

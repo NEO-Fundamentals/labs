@@ -1,0 +1,13 @@
+# The corrected filter plus an allow rule for the second port forward (to host-d), for exercise 6.
+table inet fw
+delete table inet fw
+table inet fw {
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        ct state established,related counter accept comment "replies"
+        iifname "eth1" oifname "eth2" ip saddr 10.15.1.0/24 ct state new counter accept comment "inside -> outside (private source)"
+        iifname "eth2" ip daddr 10.15.3.30 tcp dport 80 ct status dnat ct state new counter accept comment "port forward: real address after DNAT"
+        ip daddr 10.15.1.40 tcp dport 8080 ct status dnat ct state new counter accept comment "port forward to host-d (after DNAT)"
+        counter comment "cleanup: default deny"
+    }
+}

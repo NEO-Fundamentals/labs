@@ -1,0 +1,3 @@
+# Exercise 7: after the cleanup counter, answer TCP from outside or dmz toward inside with a reset instead of silence.
+# Added at the END of the chain (after the log/counter rule, which has no verdict and so lets the packet go on).
+add rule inet fw forward iifname { "eth2", "eth3" } oifname "eth1" reject with tcp reset comment "cleanup: reject toward inside"

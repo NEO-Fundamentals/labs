@@ -1,0 +1,14 @@
+# A default-deny filter whose port-forward rule matches the PUBLIC address 10.15.2.1:8080 (exercise 4).
+# The filter runs between destination NAT and source NAT: it sees the REAL destination 10.15.3.30:80 and the
+# REAL (private) source of inside clients. This rule never matches.
+table inet fw
+delete table inet fw
+table inet fw {
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        ct state established,related counter accept comment "replies"
+        iifname "eth1" oifname "eth2" ip saddr 10.15.1.0/24 ct state new counter accept comment "inside -> outside (private source)"
+        iifname "eth2" ip daddr 10.15.2.1 tcp dport 8080 ct state new counter accept comment "WRONG: public address and port"
+        counter comment "cleanup: default deny"
+    }
+}

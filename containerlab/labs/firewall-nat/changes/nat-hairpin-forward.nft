@@ -1,0 +1,14 @@
+# Exercise 6: a second port forward, 10.15.2.1:8081 -> host-d 10.15.1.40:8080, for ANY source (also inside).
+table ip fw_nat
+delete table ip fw_nat
+table ip fw_nat {
+    chain prerouting {
+        type nat hook prerouting priority dstnat; policy accept;
+        iifname "eth2" tcp dport 8080 counter dnat to 10.15.3.30:80 comment "port forward 10.15.2.1:8080 -> host-c:80"
+        tcp dport 8081 ip daddr 10.15.2.1 counter dnat to 10.15.1.40:8080 comment "port forward 10.15.2.1:8081 -> host-d:8080 (any source)"
+    }
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        oifname "eth2" counter masquerade comment "inside -> outside: hide behind 10.15.2.1"
+    }
+}

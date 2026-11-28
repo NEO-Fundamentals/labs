@@ -1,0 +1,9 @@
+# Trace TCP packets to port 8080 or 8081 as they arrive (raw priority: before NAT). Read with  nft monitor trace
+table ip fwtrace
+delete table ip fwtrace
+table ip fwtrace {
+    chain pre {
+        type filter hook prerouting priority raw; policy accept;
+        tcp dport { 8080, 8081 } meta nftrace set 1
+    }
+}

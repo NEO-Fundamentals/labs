@@ -1,0 +1,9 @@
+# fw: default deny and nothing else. No rule accepts anything, so every forwarded packet is counted and dropped.
+table inet fw
+delete table inet fw
+table inet fw {
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        counter comment "default deny"
+    }
+}

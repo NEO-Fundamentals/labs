@@ -1,0 +1,3 @@
+# The change (exercise 5): allow new sessions from inside to the app on host-b port 8443. Inserted as the 4th rule
+# (index 3, counting from 0), above the drop record and "everything else". It adds one rule; nothing else changes.
+insert rule ip fw forward index 3 iifname "eth1" oifname "eth2" ip daddr 10.19.2.80 tcp dport 8443 tcp flags syn ct state new counter accept comment "change 1: app on 8443"

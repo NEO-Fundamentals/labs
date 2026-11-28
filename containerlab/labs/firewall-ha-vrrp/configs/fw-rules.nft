@@ -1,0 +1,13 @@
+# The same stateful rules on fw1 and fw2. Each firewall has its OWN session table (connection tracking); nothing
+# copies sessions between them in this lab. eth1 = inside, eth2 = outside.
+table ip fw
+delete table ip fw
+table ip fw {
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        ct state established,related counter accept comment "replies and known sessions"
+        ct state invalid counter drop comment "no session for this packet"
+        iifname "eth1" oifname "eth2" ct state new counter accept comment "inside -> outside"
+        counter comment "everything else (policy drop)"
+    }
+}
