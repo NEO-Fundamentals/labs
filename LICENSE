@@ -1,4 +1,6 @@
-Copyright (c) 2026 NEO Fundamentals. Licensed under CC BY 4.0.
+Copyright (c) 2026 NEO Fundamentals.
+
+This file is the CC BY 4.0 licence text. It applies to the text and pictures in this repository (guides, lessons, READMEs, diagrams and sample captures). Code in containerlab/ (the neo-tools image sources, scripts, tools, and the lab, config and change files) is under MIT; see containerlab/LICENSE-MIT. The split is listed in containerlab/LICENSES.md.
 
 Attribution 4.0 International
 

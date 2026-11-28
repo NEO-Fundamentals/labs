@@ -6,14 +6,14 @@ Addresses in every pack are private lab ranges (RFC 1918) only. Names are fictio
 
 ## Start here: the Containerlab labs (current)
 
-Every current lesson lab is in the [`containerlab/`](containerlab/) folder, with a step-by-step beginner guide (`containerlab/NEO-Containerlab-Beginner-Guide.pdf`).
+Every current lesson lab is in the [`containerlab/`](containerlab/) folder (kit **1.3.1**, 46 labs), with a step-by-step beginner guide (`containerlab/NEO-Containerlab-Beginner-Guide.pdf`).
 
 1. On this page, click the green **Code** button, then **Download ZIP**. You get `labs-main.zip` with every lab in it.
 2. Extract it to your Home folder. It unpacks to `labs-main`.
 3. In VS Code, open the folder `~/labs-main/containerlab` (**File > Open Folder**).
 4. In the Containerlab panel, right-click your lesson's lab file, for example `labs/ebgp-two-sites/ebgp-two-sites.clab.yml`, and click **Deploy**.
 
-The kit version, lesson index and changelog are in [`containerlab/README.md`](containerlab/README.md). The first deploy downloads free router images from the internet; after that, lab traffic stays inside your VM.
+The kit version, lesson index and changelog are in [`containerlab/README.md`](containerlab/README.md). The first deploy downloads free router images from the internet; after that, lab traffic stays inside your VM. Two labs (`ngfw-inspection` and `firewall-ha-vrrp`) also need a local build of `neo-tools:1.1.0` from `containerlab/tools/neo-tools` until that tag is published; see [`containerlab/tools/README.md`](containerlab/tools/README.md).
 
 ## Legacy: Getting Started free-VM kit (older version of lesson 01)
 
@@ -28,8 +28,11 @@ This is the earlier kit for the first version of **Build Your Own NEO Lab** (a f
 
 The legacy zip SHA-256 is `244822b5e8b9422977682677e0f77a221062aac6f76dc93c0c3e90f5f8ed2e5d`. See `MANIFEST.tsv` for its file list and sanitize result.
 
-## License
+## Licences
 
-The lab files, captures, and diagrams in this repository are licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Attribution: NEO Fundamentals. They are provided as-is for learning.
+The Containerlab kit uses two licences, listed in [`containerlab/LICENSES.md`](containerlab/LICENSES.md).
 
-See [LICENSE](LICENSE) for the full legal text.
+- Code (the `neo-tools` image sources, scripts, tools, and the lab, config and change files) is under the **MIT** licence: [`containerlab/LICENSE-MIT`](containerlab/LICENSE-MIT).
+- Text and pictures (the beginner guide, lessons, READMEs, diagrams and sample captures) are under **[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)**. Attribution: NEO Fundamentals. The legal text is in [LICENSE](LICENSE).
+
+The images the labs download come under their owners' own licences. Files are provided as-is for learning. The legacy Getting Started pack in `getting-started/` remains under CC BY 4.0.
