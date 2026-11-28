@@ -1,0 +1,4 @@
+spines = spine-1 spine-2
+leaf leaf-1 = 10.31.10.0/26
+leaf leaf-2 = 10.31.10.64/26
+links = 10.31.0.0/24

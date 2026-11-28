@@ -1,0 +1,65 @@
+# NEO lab for "Cloud-managed campus networks": our own stand-in cloud controller and device agents, not a
+# vendor cloud product. Six Linux containers (the NEO helper image). No SR Linux and no FRR.
+# The controller speaks plain HTTP; a real cloud uses TLS with device certificates.
+# Data-plane traffic (client to web) stays on the campus devices; it does not go through the controller.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+# The web server node is named `web` (not `host`): containerlab would attach that link to the Docker host
+# itself if the node were named `host`.
+name: cloud-managed-campus
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    controller:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "cloud controller 10.30.3.10:8080", graph-icon: server, graph-level: 1, graph-posX: 40, graph-posY: 40}
+      binds: [scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-controller.sh
+    edge:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "campus edge / gateway", graph-icon: router, graph-level: 1, graph-posX: 320, graph-posY: 40}
+      binds: [scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-edge.sh
+    east:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "east agent EAST-7F3K", graph-icon: router, graph-level: 2, graph-posX: 200, graph-posY: 240}
+      binds: [scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-east.sh
+    west:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "west agent WEST-2M9Q", graph-icon: router, graph-level: 2, graph-posX: 520, graph-posY: 240}
+      binds: [scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-west.sh
+    client:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "client 10.30.10.10", graph-icon: host, graph-level: 3, graph-posX: 80, graph-posY: 420}
+      binds: [scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-client.sh
+    web:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "web 10.30.10.130 :80", graph-icon: server, graph-level: 3, graph-posX: 640, graph-posY: 420}
+      binds: [scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-web.sh
+  links:
+    - endpoints: ["controller:eth1", "edge:eth1"]
+    - endpoints: ["edge:eth2", "east:eth1"]
+    - endpoints: ["edge:eth3", "west:eth1"]
+    - endpoints: ["east:eth2", "client:eth1"]
+    - endpoints: ["west:eth2", "web:eth1"]

@@ -1,0 +1,75 @@
+# NEO lab for "Intent-based data-center fabrics": our own intent-to-config tool (render, diff, deploy,
+# validate), not a vendor fabric product. Two spines, two leaves and three hosts, all Linux containers
+# (the NEO helper image). No SR Linux and no FRR: static routes with ECMP next hops stand in for the
+# fabric routing protocol (real fabrics run BGP or OSPF, usually with an EVPN-VXLAN overlay). Four SR
+# Linux nodes would not fit the 8 GB lab VM.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+# Hosts are named host-a, host-b and host-c (not `host`): containerlab would attach that link to the
+# Docker host itself if a node were named `host`.
+name: intent-leaf-spine
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    spine-1:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "spine-1", graph-icon: router, graph-level: 1, graph-posX: 240, graph-posY: 40}
+      binds: [scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-switch.sh
+    spine-2:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "spine-2", graph-icon: router, graph-level: 1, graph-posX: 560, graph-posY: 40}
+      binds: [scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-switch.sh
+    leaf-1:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "leaf-1, subnet 10.31.10.0/26", graph-icon: router, graph-level: 2, graph-posX: 240, graph-posY: 260}
+      binds: [scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-switch.sh
+    leaf-2:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "leaf-2, subnet 10.31.10.64/26", graph-icon: router, graph-level: 2, graph-posX: 560, graph-posY: 260}
+      binds: [scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-switch.sh
+    host-a:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "host-a 10.31.10.10", graph-icon: host, graph-level: 3, graph-posX: 240, graph-posY: 460}
+      binds: [scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-host-a.sh
+    host-b:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "host-b 10.31.10.74 :80", graph-icon: server, graph-level: 3, graph-posX: 480, graph-posY: 460}
+      binds: [scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-host-b.sh
+    host-c:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "host-c 10.31.10.138 :80 (after intent v2)", graph-icon: server, graph-level: 3, graph-posX: 720, graph-posY: 460}
+      binds: [scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-host-c.sh
+  links:
+    - endpoints: ["spine-1:to-leaf-1", "leaf-1:to-spine-1"]
+    - endpoints: ["spine-1:to-leaf-2", "leaf-2:to-spine-1"]
+    - endpoints: ["spine-2:to-leaf-1", "leaf-1:to-spine-2"]
+    - endpoints: ["spine-2:to-leaf-2", "leaf-2:to-spine-2"]
+    - endpoints: ["leaf-1:lan0", "host-a:eth1"]
+    - endpoints: ["leaf-2:lan0", "host-b:eth1"]
+    - endpoints: ["leaf-2:lan1", "host-c:eth1"]

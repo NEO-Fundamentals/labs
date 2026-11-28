@@ -1,0 +1,47 @@
+# NEO lab for "Network maps and runbooks from configs": a config mapper and a read-only runbook, both our own
+# scripts, not a vendor mapping product. Four Linux containers (the NEO helper image). No FRR and no SR Linux: the
+# mapper reads `ip -batch` configs, and the runbook checks live state with `ip` and a TCP probe.
+# Planted gap: y's stored config has no route back to c's subnet, so the map's return path breaks at y.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: config-map-runbook
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    c:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "client 10.29.1.10", graph-icon: host, graph-level: 1, graph-posX: 40, graph-posY: 80}
+      binds: [configs:/neo/configs:ro, scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-node.sh c
+    x:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "router x", graph-icon: router, graph-level: 1, graph-posX: 280, graph-posY: 80}
+      binds: [configs:/neo/configs:ro, scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-node.sh x
+    y:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "router y (no return route)", graph-icon: router, graph-level: 1, graph-posX: 520, graph-posY: 80}
+      binds: [configs:/neo/configs:ro, scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-node.sh y
+    web:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "web 10.29.2.20 :80", graph-icon: server, graph-level: 1, graph-posX: 760, graph-posY: 80}
+      binds: [configs:/neo/configs:ro, scripts:/neo/scripts:ro]
+      exec:
+        - bash /neo/scripts/start-node.sh web
+  links:
+    - endpoints: ["c:eth1", "x:eth1"]
+    - endpoints: ["x:eth2", "y:eth1"]
+    - endpoints: ["y:eth2", "web:eth1"]
