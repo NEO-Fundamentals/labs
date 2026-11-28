@@ -1,6 +1,6 @@
 # Lab: one routing table read on three systems (FRR runs; Junos and EOS shown as text)
 
-**Folder:** `labs/multivendor-route-tables/`  **Lab file:** `multivendor-route-tables.clab.yml`  **Lesson:** NEO-37 Multi-vendor route tables  **Lab version:** 1.0.0 (2026-11-27)
+**Folder:** `labs/multivendor-route-tables/`  **Lab file:** `multivendor-route-tables.clab.yml`  **Lesson:** NEO-37 Multi-vendor route tables  **Lab version:** 1.0.1 (2026-11-27, kit 1.2.3: exercise 1 explains the management and local routes; `make-captures.sh` needs sudo and keeps the old sample if a recording fails. Previous: 1.0.0)
 
 **What runs and what does not:** the lab runs three real FRR routers. **Junos and EOS appear only as command text for comparison (below). They are not run, and there is no Junos or EOS in this lab.** The routing table you read here is the same idea on every system: a prefix, a next hop, an exit interface and a rule that the longest match wins.
 
@@ -35,7 +35,7 @@ All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the pri
 - `multivendor-route-tables.clab.yml` - the lab drawing.
 - `configs/r1-frr.conf`, `configs/r2-frr.conf`, `configs/r3-frr.conf` - each router's addresses and routes.
 - `changes/` - small command files you feed to r1: `r1-shutdown-eth2.txt` (shut the link to r3) and `r1-no-shutdown-eth2.txt`.
-- `scripts/make-captures.sh` - re-records the sample captures (the lab must be running; it waits up to 90 seconds for r1's routes).
+- `scripts/make-captures.sh` - re-records the sample captures (the lab must be running; it waits up to 90 seconds for r1's routes). Run it from the lab folder with `sudo bash scripts/make-captures.sh` (it asks for your password). It overwrites a sample in `captures/` only when the new recording succeeds; a failed one prints `FAIL` and the old sample stays.
 - `multivendor-route-tables.drawio` and `multivendor-route-tables.png` - the prepared diagram.
 - `captures/` - two sample captures: `routes-longest-match-r3.pcapng` and `routes-eth2-down-unreachable.pcapng`.
 
@@ -76,7 +76,7 @@ Run these lines in VS Code's terminal (**Terminal > New Terminal**). They use `d
 ```
 docker exec clab-multivendor-route-tables-r1 vtysh -c "show ip route"
 ```
-Find the three `S>*` lines (static, selected, installed in the forwarding table): the /24 and the default route go through `10.0.12.2` (r2), the /25 goes through `10.0.13.2` (r3). The `C>*` lines are the two connected links. Then read the same table the way Linux keeps it:
+Find the three `S>*` lines (static, selected, installed in the forwarding table): the /24 and the default route go through `10.0.12.2` (r2), the /25 goes through `10.0.13.2` (r3). The `C>*` lines are the connected networks: the two links to r2 and r3, and `172.20.20.0/24` on `eth0`, the management network Containerlab gives every node (not part of the exercise). Each `L>*` line is one of r1's own addresses (a /32 on each of those three networks). Then read the same table the way Linux keeps it:
 ```
 docker exec clab-multivendor-route-tables-r1 ip route
 ```

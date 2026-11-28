@@ -1,6 +1,6 @@
 # Lab: subnets, masks and the default gateway
 
-**Folder:** `labs/subnetting-gateway/`  **Lab file:** `subnetting-gateway.clab.yml`  **Lesson:** NEO-05 IPv4 subnetting and CIDR  **Lab version:** 1.0.0 (2026-11-26)
+**Folder:** `labs/subnetting-gateway/`  **Lab file:** `subnetting-gateway.clab.yml`  **Lesson:** NEO-05 IPv4 subnetting and CIDR  **Lab version:** 1.0.1 (2026-11-27, kit 1.2.3: r1 start-up time 10 to 20 seconds, note on the 10.0.2.x range; network-multitool pinned to v0.10.0 (same image); `make-captures.sh` needs sudo and keeps the old sample if a recording fails. Previous: 1.0.0)
 
 
 ## Before you start
@@ -8,8 +8,9 @@
 - **Where this runs:** the NEO lab virtual machine from the guide (Ubuntu 24.04, 8 GB of memory, 4 CPUs) with Docker, Containerlab, VS Code (with the Containerlab and Draw.io extensions) and Wireshark. Check in Ubuntu's Terminal: `containerlab version` and `docker --version` each print a version number.
 - **One lab at a time:** `containerlab inspect --all` should say no containers found. If another lab is running, clean it up first (see **Cleanup** in that lab's README).
 - **The lab folder:** `~/labs-main/containerlab/labs/subnetting-gateway/` (see the kit README, "Getting the latest labs").
-- **Internet and disk:** the first Deploy downloads `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB) and `ghcr.io/srl-labs/network-multitool` (about 860 MB). After that the lab works offline. Keep at least 2 GB of disk free (`df -h ~`).
-- **Time:** The first Deploy takes 2 to 5 minutes (downloads); later Deploys take under a minute, plus about 10 seconds for r1.
+- **Internet and disk:** the first Deploy downloads `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB) and `ghcr.io/srl-labs/network-multitool:v0.10.0` (about 860 MB). After that the lab works offline. Keep at least 2 GB of disk free (`df -h ~`).
+- **Time:** The first Deploy takes 2 to 5 minutes (downloads); later Deploys take under a minute, plus 10 to 20 seconds for r1 (FRR) to load its addresses.
+- **Addresses:** this lab uses 10.0.2.x on its own cables. Your VM's VirtualBox network uses the same range (`ip addr` on the VM shows 10.0.2.15/24 on its main interface). They are separate networks that share a number range; use only the lab addresses in this README in the exercises.
 
 ## What this lab builds
 
@@ -28,8 +29,8 @@ The lesson's practice question: host `10.0.2.130/26`; is `10.0.2.190` in its sub
 
 | Node | What it is | Image (free, public) | How you log in |
 |---|---|---|---|
-| host-a, host-b, host-c | Linux hosts | `ghcr.io/srl-labs/network-multitool` | Right-click > **Access** > **Attach Shell** |
-| sw1 | A Linux bridge used as a switch | `ghcr.io/srl-labs/network-multitool` | Right-click > **Access** > **Attach Shell** |
+| host-a, host-b, host-c | Linux hosts | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Right-click > **Access** > **Attach Shell** |
+| sw1 | A Linux bridge used as a switch | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Right-click > **Access** > **Attach Shell** |
 | r1 | FRR router, one address in each subnet | `quay.io/frrouting/frr:containerlab-10.7.1` | Right-click > **Access** > **Attach Shell** (opens `vtysh`) |
 
 All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the private ULA prefix fd00:172:20:20::/64.
@@ -41,13 +42,13 @@ All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the pri
 - `subnetting-gateway.clab.yml` - the lab drawing.
 - `configs/r1-frr.conf` - r1's two addresses.
 - `scripts/subnets.py` - a subnet calculator (network, broadcast, usable range, "is this address in the same subnet?").
-- `scripts/make-captures.sh` - re-records the sample capture (the lab must be running).
+- `scripts/make-captures.sh` - re-records the sample capture (the lab must be running). Run it from the lab folder with `sudo bash scripts/make-captures.sh` (it asks for your password). It overwrites a sample in `captures/` only when the new recording succeeds; a failed one prints `FAIL` and the old sample stays.
 - `subnetting-gateway.drawio` and `subnetting-gateway.png` - the prepared diagram.
 - `captures/subnet-same-and-other.pcapng` - sample capture from host-a's cable.
 
 ## Start, reset, stop
 
-- **Start:** Containerlab panel > **Undeployed Local Labs** > `labs` > `subnetting-gateway` > right-click `subnetting-gateway.clab.yml` > **Deploy**. Wait for the five green dots, then about 10 more seconds for r1 to load its addresses. Run one lab at a time.
+- **Start:** Containerlab panel > **Undeployed Local Labs** > `labs` > `subnetting-gateway` > right-click `subnetting-gateway.clab.yml` > **Deploy**. Wait for the five green dots, then 10 to 20 more seconds for r1 to load its addresses. Run one lab at a time.
 - **Reset to the lesson start:** in VS Code, **Terminal > New Terminal**:
   ```
   cd ~/labs-main/containerlab/labs/subnetting-gateway
@@ -130,7 +131,7 @@ Both print `200`; host-a reaches it directly and host-c through its gateway (.65
 
 ## Troubleshooting
 
-1. **The first ping to the gateway or to host-c fails right after Deploy.** r1 (FRR) loads its addresses about 10 seconds after the green dots. Wait, then ping again.
+1. **The first ping to the gateway or to host-c fails right after Deploy.** r1 (FRR) loads its addresses 10 to 20 seconds after the green dots. Wait, then ping again.
 2. **A ping inside the /26 works but a ping to the other subnet fails.** Traffic to the other subnet needs a default gateway on the host (.129 for host-a and host-b, .65 for host-c). Check `docker exec clab-subnetting-gateway-host-a ip route`; if the default route is missing or wrong, reset with `containerlab redeploy -c -t subnetting-gateway.clab.yml`.
 3. **You removed or changed a host's gateway (an exercise) and cannot get it back.** Reset with `containerlab redeploy -c -t subnetting-gateway.clab.yml`; every host gets its original address and gateway again.
 4. **`python3 scripts/subnets.py` says `No such file`.** Run it from the lab folder: `cd ~/labs-main/containerlab/labs/subnetting-gateway`, then `python3 scripts/subnets.py 10.0.2.130/26`. It runs on the VM, not in a container.

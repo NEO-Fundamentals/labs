@@ -14,7 +14,7 @@ topology:
   nodes:
     sw1:
       kind: linux
-      image: ghcr.io/srl-labs/network-multitool:latest
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
       labels: {neo-note: "Linux bridge, a switch", graph-icon: switch, graph-level: 2, graph-posX: 350, graph-posY: 200}
       cmd: sleep infinity
       exec:
@@ -26,7 +26,7 @@ topology:
         - ip link set eth4 master br0
     host-a:
       kind: linux
-      image: ghcr.io/srl-labs/network-multitool:latest
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
       labels: {neo-note: "10.0.2.130/26, gateway .129", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 80}
       exec:
         - ip addr add 10.0.2.130/26 dev eth1
@@ -34,7 +34,7 @@ topology:
         - sysctl -w net.ipv4.conf.all.accept_redirects=0
     host-b:
       kind: linux
-      image: ghcr.io/srl-labs/network-multitool:latest
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
       labels: {neo-note: "10.0.2.190/26, gateway .129", graph-icon: host, neo-role: server, graph-level: 1, graph-posX: 100, graph-posY: 320}
       cmd: sleep infinity
       exec:
@@ -44,7 +44,7 @@ topology:
         - sh -c "nohup python3 -m http.server 8080 --bind 10.0.2.190 >/dev/null 2>&1 &"
     host-c:
       kind: linux
-      image: ghcr.io/srl-labs/network-multitool:latest
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
       labels: {neo-note: "10.0.2.66/26, gateway .65", graph-icon: host, graph-level: 3, graph-posX: 600, graph-posY: 320}
       exec:
         - ip addr add 10.0.2.66/26 dev eth1

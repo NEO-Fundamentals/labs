@@ -1,6 +1,6 @@
 # Lab: TCP troubleshooting, six faults you switch on and off
 
-**Folder:** `labs/tcp-troubleshooting/`  **Lab file:** `tcp-troubleshooting.clab.yml`  **Lesson:** NEO-02 TCP Troubleshooting  **Lab version:** 1.0.0 (2026-11-26)
+**Folder:** `labs/tcp-troubleshooting/`  **Lab file:** `tcp-troubleshooting.clab.yml`  **Lesson:** NEO-02 TCP Troubleshooting  **Lab version:** 1.0.1 (2026-11-27, kit 1.2.3: zero-window and mid-transfer reset samples re-recorded (one connection each), wording fixes, port-exhaustion result quoted; network-multitool pinned to v0.10.0 (same image); `make-captures.sh` needs sudo and keeps the old sample if a recording fails. Previous: 1.0.0)
 
 
 ## Before you start
@@ -8,8 +8,9 @@
 - **Where this runs:** the NEO lab virtual machine from the guide (Ubuntu 24.04, 8 GB of memory, 4 CPUs) with Docker, Containerlab, VS Code (with the Containerlab and Draw.io extensions) and Wireshark. Check in Ubuntu's Terminal: `containerlab version` and `docker --version` each print a version number.
 - **One lab at a time:** `containerlab inspect --all` should say no containers found. If another lab is running, clean it up first (see **Cleanup** in that lab's README).
 - **The lab folder:** `~/labs-main/containerlab/labs/tcp-troubleshooting/` (see the kit README, "Getting the latest labs").
-- **Internet and disk:** the first Deploy downloads `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB) and `ghcr.io/srl-labs/network-multitool` (about 860 MB). After that the lab works offline. Keep at least 2 GB of disk free (`df -h ~`).
+- **Internet and disk:** the first Deploy downloads `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB) and `ghcr.io/srl-labs/network-multitool:v0.10.0` (about 860 MB). After that the lab works offline. Keep at least 2 GB of disk free (`df -h ~`).
 - **Time:** The first Deploy takes 2 to 5 minutes (downloads); later Deploys take under a minute, plus about 10 seconds for r1.
+- **Addresses:** this lab uses 10.0.2.x on its own cables. Your VM's VirtualBox network uses the same range (`ip addr` on the VM shows 10.0.2.15/24 on its main interface). They are separate networks that share a number range; use only the lab addresses in this README in the exercises.
 
 ## What this lab builds
 
@@ -21,9 +22,9 @@
 
 | Node | What it is | Image (free, public) | How you log in |
 |---|---|---|---|
-| host-a | Linux client. It opens the connections and is where you capture | `ghcr.io/srl-labs/network-multitool` | Right-click > **Access** > **Attach Shell** |
+| host-a | Linux client. It opens the connections and is where you capture | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Right-click > **Access** > **Attach Shell** |
 | r1 | FRR router. It only routes; the MTU fault is set on its link to host-b | `quay.io/frrouting/frr:containerlab-10.7.1` | Right-click > **Access** > **Attach Shell** (opens `vtysh`) |
-| host-b | Linux server running `scripts/tcp-server.py` (a small Python test server) | `ghcr.io/srl-labs/network-multitool` | Right-click > **Access** > **Attach Shell** |
+| host-b | Linux server running `scripts/tcp-server.py` (a small Python test server) | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Right-click > **Access** > **Attach Shell** |
 
 All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the private ULA prefix fd00:172:20:20::/64.
 
@@ -43,9 +44,9 @@ The test server on host-b starts by itself when the lab starts:
 - `configs/r1-frr.conf` - r1's addresses.
 - `scripts/tcp-server.py` - the test server (read it; it is 30 lines).
 - `scripts/faults.sh` - switches the `drop`, `loss` and `mtu` faults on and off.
-- `scripts/make-captures.sh` - re-records the six sample captures (the lab must be running).
+- `scripts/make-captures.sh` - re-records the six sample captures (the lab must be running). Run it from the lab folder with `sudo bash scripts/make-captures.sh` (it asks for your password). It overwrites a sample in `captures/` only when the new recording succeeds; a failed one prints `FAIL` and the old sample stays.
 - `tcp-troubleshooting.drawio` and `tcp-troubleshooting.png` - the prepared diagram.
-- `captures/` - sample captures recorded from this lab on the VM, to open in Wireshark (only the first 200 bytes of each packet are kept, so the files are small): `tcp-fault-drop`, `tcp-fault-reject`, `tcp-fault-loss`, `tcp-fault-zerowin`, `tcp-fault-mtu`, `tcp-fault-midrst` (`.pcapng`).
+- `captures/` - sample captures recorded from this lab on the VM, to open in Wireshark (only the first 200 bytes of each packet are kept, so the files are small): `tcp-fault-drop`, `tcp-fault-reject`, `tcp-fault-loss`, `tcp-fault-zerowin`, `tcp-fault-mtu`, `tcp-fault-midrst` (`.pcapng`). `tcp-fault-zerowin` and `tcp-fault-midrst` were re-recorded for kit 1.2.3 with this lab on a Linux test machine (not the VM), so each holds only its own connection.
 
 ## Start, reset, stop
 
@@ -94,7 +95,7 @@ bash scripts/faults.sh drop on
 ```
 docker exec clab-tcp-troubleshooting-host-a nc -w 10 172.16.100.20 8080
 ```
-Nothing prints and nc gives up after 10 seconds. In the capture there is one SYN, sent again about once a second (later every 2 seconds), and nothing ever comes back. Silence is not proof that the server is down: this server is up, and a filter in front of it discarded the packets. Switch it off: `bash scripts/faults.sh drop off`.
+Nothing prints and nc gives up after 10 seconds. In the capture there is one SYN, sent again about once a second five times, then after 2 seconds (each further wait doubles: 4 s, 8 s), and nothing ever comes back. Silence is not proof that the server is down: this server is up, and a filter in front of it discarded the packets. Switch it off: `bash scripts/faults.sh drop off`.
 
 **2. Refused (port 8081).** Nothing listens on this port:
 ```
@@ -115,7 +116,7 @@ It still prints `200000` (TCP recovers) but takes longer. In the capture look fo
 ```
 docker exec clab-tcp-troubleshooting-host-a sh -c "head -c 3000000 /dev/zero | nc -w 8 172.16.100.20 8082"
 ```
-The transfer stalls. In the capture host-b's ACKs advertise a window that shrinks to 0 (`tcp.analysis.zero_window`), and host-a sends small zero-window probes. The network is fine; the receiver is the limit. A traceroute would not help. To see the receiver's queue: `docker exec clab-tcp-troubleshooting-host-b ss -tn` (a large `Recv-Q`).
+The transfer stalls. In the capture host-b's ACKs advertise a window that shrinks to 0 (`tcp.analysis.zero_window`), and host-a keeps checking whether the window has opened: Wireshark labels those small empty packets `[TCP Keep-Alive]` (Linux sends its zero-window probes in that form), and host-b answers them with another `[TCP ZeroWindow]` ACK (the gaps between probes grow). The network is fine; the receiver is the limit. A traceroute would not help. To see the receiver's queue: `docker exec clab-tcp-troubleshooting-host-b ss -tn` (a large `Recv-Q`).
 
 **5. MTU black hole (port 8085).** r1's link to host-b drops to MTU 600, and a filter on r1 drops only its "fragmentation needed" messages (ICMP type 3, code 4) on the way to host-a, so host-a never hears them. Other ICMP, such as ping replies, still gets through:
 ```
@@ -144,15 +145,16 @@ docker exec clab-tcp-troubleshooting-host-a sh -c 'for i in $(seq 16); do echo h
 ```
 docker exec clab-tcp-troubleshooting-host-a ss -tan state time-wait
 ```
-About ten connections succeed and the rest fail because every local port is in TIME-WAIT (the closing side holds the four-tuple for 60 seconds). The limit is on the client, not the path. Restore it with `containerlab redeploy -c -t tcp-troubleshooting.clab.yml`.
+Tries 1 to 10 print `exit 0` and tries 11 to 16 print `exit 1` (nc prints no other message), and `ss` lists ten connections in TIME-WAIT, one for each local port 40000 to 40009 (checked on a Linux test machine for kit 1.2.3). The rest fail because every local port is in TIME-WAIT (the closing side holds the four-tuple for 60 seconds). The limit is on the client, not the path. Restore it with `containerlab redeploy -c -t tcp-troubleshooting.clab.yml`.
 
 ## Troubleshooting
 
 1. **`bash scripts/faults.sh ...` says `No such file` or `docker: command not found`.** Run it from the lab folder on the VM: `cd ~/labs-main/containerlab/labs/tcp-troubleshooting`, then `bash scripts/faults.sh drop on`.
-2. **A fault seems to do nothing.** Each fault has its own port: `drop` and `loss` and `mtu` act on port 8080 (switch them on first), 8081 is closed, 8082 never reads and 8083 resets mid-transfer. Test the fault's own port. Switch a fault off with `off`, or reset everything with `containerlab redeploy -c -t tcp-troubleshooting.clab.yml`.
+2. **A fault seems to do nothing.** Only `drop` is tied to a port (8080). `loss` hits everything host-b sends, and `mtu` hits every large packet towards host-b (the exercise uses port 8085); switch them on first. Port 8081 is closed, 8082 never reads and 8083 resets mid-transfer. Test with the command from the fault's own exercise. Switch a fault off with `off`, or reset everything with `containerlab redeploy -c -t tcp-troubleshooting.clab.yml`.
 3. **The first ping fails right after Deploy.** r1 (FRR) loads its addresses 10 to 20 seconds after the green dots. Wait and ping again.
 4. **The zero-window test (port 8082) looks different the second time.** The test server on host-b never reads and keeps every earlier connection open. Reset with `containerlab redeploy -c -t tcp-troubleshooting.clab.yml` (this also clears every fault) before you run it again.
 5. **The capture file is empty.** Start the capture first, in Ubuntu's Terminal app with `sudo` and `--target host-a:eth1`, then run the test in a second window while it records.
+6. **`faults.sh` prints `TC classifier not found` or `Specified qdisc kind is unknown`.** That Linux kernel has no traffic-control filters or `netem`, so the `drop`, `loss` and `mtu` faults cannot switch on (and `scripts/make-captures.sh` marks those three captures `FAIL` and keeps the old samples). The NEO VM's Ubuntu kernel has them; run the lab there.
 
 ## Cleanup
 

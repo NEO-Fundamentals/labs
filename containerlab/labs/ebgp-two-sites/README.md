@@ -1,13 +1,13 @@
 # Lab: two sites joined by eBGP
 
-**Folder:** `labs/ebgp-two-sites/`  **Lab file:** `ebgp-two-sites.clab.yml`  **Lab version:** 1.1.5 (2026-11-26; README only: E4 keepalive timing corrected to 30 s, keepalive sample added, Before you start, Troubleshooting and Cleanup sections added, diagram re-rendered. Lab file and configs unchanged since 1.1.4)
+**Folder:** `labs/ebgp-two-sites/`  **Lab file:** `ebgp-two-sites.clab.yml`  **Lab version:** 1.1.6 (2026-11-27, kit 1.2.3: keepalive sample duration wording; network-multitool pinned to v0.10.0 (same image); `make-captures.sh` needs sudo and keeps the old sample if a recording fails. Previous: 1.1.5)
 
 ## Before you start
 
 - **Where this runs:** the NEO lab virtual machine from the guide (Ubuntu 24.04, 8 GB of memory, 4 CPUs) with Docker, Containerlab, VS Code (with the Containerlab and Draw.io extensions) and Wireshark. Check in Ubuntu's Terminal: `containerlab version` and `docker --version` each print a version number.
 - **One lab at a time:** `containerlab inspect --all` should say no containers found. If another lab is running, clean it up first (see **Cleanup** in that lab's README).
 - **The lab folder:** `~/labs-main/containerlab/labs/ebgp-two-sites/` (see the kit README, "Getting the latest labs").
-- **Internet and disk:** the first Deploy downloads `ghcr.io/nokia/srlinux:26.7.2` (about 2.4 GB on disk), `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB) and `ghcr.io/srl-labs/network-multitool` (about 860 MB). After that the lab works offline. Keep at least 4 GB of disk free (`df -h ~`).
+- **Internet and disk:** the first Deploy downloads `ghcr.io/nokia/srlinux:26.7.2` (about 2.4 GB on disk), `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB) and `ghcr.io/srl-labs/network-multitool:v0.10.0` (about 860 MB). After that the lab works offline. Keep at least 4 GB of disk free (`df -h ~`).
 - **Time:** The first Deploy takes 5 to 10 minutes (downloads); later Deploys take about 2 minutes. SR Linux then needs about a minute before BGP comes up.
 
 ## What this lab builds
@@ -23,8 +23,8 @@
 |---|---|---|---|
 | edge-a | Nokia SR Linux router, AS 65201 | `ghcr.io/nokia/srlinux:26.7.2` | Right-click > **Access** > **Attach Shell** (opens `sr_cli`), or **SSH** (user `admin`, password `NokiaSrl1!`) |
 | edge-b | FRR router, AS 65202 | `quay.io/frrouting/frr:containerlab-10.7.1` | Right-click > **Access** > **Attach Shell** (opens `vtysh` directly) |
-| host-a | Linux PC on Site A LAN | `ghcr.io/srl-labs/network-multitool` | Right-click > **Access** > **Attach Shell** |
-| host-b | Linux PC on Site B LAN | `ghcr.io/srl-labs/network-multitool` | Right-click > **Access** > **Attach Shell** |
+| host-a | Linux PC on Site A LAN | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Right-click > **Access** > **Attach Shell** |
+| host-b | Linux PC on Site B LAN | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Right-click > **Access** > **Attach Shell** |
 
 All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the private ULA prefix fd00:172:20:20::/64 (set in the lab file under `mgmt:`). The AS numbers are private (64512 to 65534).
 
@@ -37,8 +37,8 @@ All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the pri
 - `configs/edge-b-frr.conf` - edge-b's starting config.
 - `ebgp-two-sites.drawio` and `ebgp-two-sites.png` - the prepared diagram (open the `.drawio` in VS Code, or the `.png` in any viewer).
 - `captures/ebgp-session-restart.pcapng` - sample capture of the WAN link while the session restarts (open with the filter `bgp`). Recorded in the identical `multivendor-ebgp` lab (same topology and configs).
-- `captures/ebgp-keepalive.pcapng` - sample for E4: the WAN link of this lab, healthy, recorded on a VM with the E4 command. It shows one KEEPALIVE from each router every 30 seconds (filter `bgp`).
-- `scripts/make-captures.sh` - re-records `ebgp-session-restart.pcapng` (the lab must be running). The keepalive sample was recorded by hand with the E4 command.
+- `captures/ebgp-keepalive.pcapng` - sample for E4: the WAN link of this lab, healthy, recorded on a VM. Its packets span about 97 seconds (first to last packet). It shows one KEEPALIVE from each router every 30 seconds (filter `bgp`).
+- `scripts/make-captures.sh` - re-records `ebgp-session-restart.pcapng` (the lab must be running). The keepalive sample was recorded by hand; to record your own, use the E4 row. Run it from the lab folder with `sudo bash scripts/make-captures.sh` (it asks for your password). It overwrites a sample in `captures/` only when the new recording succeeds; a failed one prints `FAIL` and the old sample stays.
 
 ## Start, reset, stop
 

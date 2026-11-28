@@ -1,6 +1,6 @@
 # Lab: interface address and state on two routers (FRR), with Junos and EOS shown as text
 
-**Folder:** `labs/multivendor-interfaces/`  **Lab file:** `multivendor-interfaces.clab.yml`  **Lesson:** NEO-34 Multi-vendor interface addressing and show commands  **Lab version:** 1.0.0 (2026-11-26)
+**Folder:** `labs/multivendor-interfaces/`  **Lab file:** `multivendor-interfaces.clab.yml`  **Lesson:** NEO-34 Multi-vendor interface addressing and show commands  **Lab version:** 1.0.1 (2026-11-27, kit 1.2.3: note on the 10.0.2.x range; network-multitool pinned to v0.10.0 (same image); `make-captures.sh` needs sudo and keeps the old sample if a recording fails. Previous: 1.0.0)
 
 
 **What runs and what does not:** the lab runs real interfaces on FRR (open-source routing software) and Linux. **Junos and EOS appear only as configuration text for comparison (below). They are not run, and there is no Junos or EOS in this lab.**
@@ -10,8 +10,9 @@
 - **Where this runs:** the NEO lab virtual machine from the guide (Ubuntu 24.04, 8 GB of memory, 4 CPUs) with Docker, Containerlab, VS Code (with the Containerlab and Draw.io extensions) and Wireshark. Check in Ubuntu's Terminal: `containerlab version` and `docker --version` each print a version number.
 - **One lab at a time:** `containerlab inspect --all` should say no containers found. If another lab is running, clean it up first (see **Cleanup** in that lab's README).
 - **The lab folder:** `~/labs-main/containerlab/labs/multivendor-interfaces/` (see the kit README, "Getting the latest labs").
-- **Internet and disk:** the first Deploy downloads `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB) and `ghcr.io/srl-labs/network-multitool` (about 860 MB). After that the lab works offline. Keep at least 2 GB of disk free (`df -h ~`).
+- **Internet and disk:** the first Deploy downloads `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB) and `ghcr.io/srl-labs/network-multitool:v0.10.0` (about 860 MB). After that the lab works offline. Keep at least 2 GB of disk free (`df -h ~`).
 - **Time:** The first Deploy takes 2 to 5 minutes (downloads); later Deploys take under a minute, plus about 20 seconds for FRR to apply its address file.
+- **Addresses:** this lab uses 10.0.2.x on its own cables. Your VM's VirtualBox network uses the same range (`ip addr` on the VM shows 10.0.2.15/24 on its main interface). They are separate networks that share a number range; use only the lab addresses in this README in the exercises.
 
 ## What this lab builds
 
@@ -25,7 +26,7 @@
 |---|---|---|---|
 | l | FRR router L. eth1 has 10.0.2.1/30; eth2 has 10.0.3.1/24 and is shut down | `quay.io/frrouting/frr:containerlab-10.7.1` | Right-click > **Access** > **Attach Shell** (opens `vtysh`) |
 | r | FRR router R. eth1 has 10.0.2.2/30 | `quay.io/frrouting/frr:containerlab-10.7.1` | Right-click > **Access** > **Attach Shell** (opens `vtysh`) |
-| spare | A Linux host on the far end of L's eth2, so that port has a cable but starts shut down | `ghcr.io/srl-labs/network-multitool` | Right-click > **Access** > **Attach Shell** |
+| spare | A Linux host on the far end of L's eth2, so that port has a cable but starts shut down | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Right-click > **Access** > **Attach Shell** |
 
 All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the private ULA prefix fd00:172:20:20::/64.
 
@@ -34,7 +35,7 @@ All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the pri
 - `multivendor-interfaces.clab.yml` - the lab drawing.
 - `configs/l-frr.conf`, `configs/r-frr.conf` - each router's addresses and the shutdown on L's eth2.
 - `changes/` - small command files you feed to R: `r-typo.txt` (wrong address), `r-fix.txt`, `r-shutdown.txt`, `r-no-shutdown.txt`.
-- `scripts/make-captures.sh` - re-records the sample captures (the lab must be running).
+- `scripts/make-captures.sh` - re-records the sample captures (the lab must be running). Run it from the lab folder with `sudo bash scripts/make-captures.sh` (it asks for your password). It overwrites a sample in `captures/` only when the new recording succeeds; a failed one prints `FAIL` and the old sample stays.
 - `multivendor-interfaces.drawio` and `multivendor-interfaces.png` - the prepared diagram.
 - `captures/` - sample captures from L's cable: `interfaces-ping-ok.pcapng`, `interfaces-ping-typo.pcapng`.
 

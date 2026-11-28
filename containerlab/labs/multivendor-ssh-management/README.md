@@ -1,6 +1,6 @@
 # Lab: SSH management with strict host-key checking (real OpenSSH), with Junos and EOS shown as text
 
-**Folder:** `labs/multivendor-ssh-management/`  **Lab file:** `multivendor-ssh-management.clab.yml`  **Lesson:** NEO-33 Multi-vendor SSH management  **Lab version:** 1.0.0 (2026-11-27)
+**Folder:** `labs/multivendor-ssh-management/`  **Lab file:** `multivendor-ssh-management.clab.yml`  **Lesson:** NEO-33 Multi-vendor SSH management  **Lab version:** 1.0.1 (2026-11-27, kit 1.2.3: diagram draws the device as a server; network-multitool pinned to v0.10.0 (same image); `make-captures.sh` needs sudo and keeps the old sample if a recording fails. Previous: 1.0.0)
 
 **What runs and what does not:** the lab runs a real OpenSSH client on a management host (admin-host) and a real OpenSSH server on a Linux device. **Junos and EOS appear only as configuration and command text for comparison (below). They are not run, and there is no Junos or EOS in this lab.** The device stands in for a network device: it is a Linux container, not a router.
 
@@ -9,7 +9,7 @@
 - **Where this runs:** the NEO lab virtual machine from the guide (Ubuntu 24.04, 8 GB of memory, 4 CPUs) with Docker, Containerlab, VS Code (with the Containerlab and Draw.io extensions) and Wireshark. Check in Ubuntu's Terminal: `containerlab version` and `docker --version` each print a version number.
 - **One lab at a time:** `containerlab inspect --all` should say no containers found. If another lab is running, clean it up first (see **Cleanup** in that lab's README).
 - **The lab folder:** `~/labs-main/containerlab/labs/multivendor-ssh-management/` (see the kit README, "Getting the latest labs").
-- **Internet and disk:** the first Deploy downloads `ghcr.io/srl-labs/network-multitool` (about 860 MB) and `ghcr.io/neo-fundamentals/neo-tools:1.0.0` (the NEO helper image, a Debian image with the OpenSSH server, about 257 MB). After that the lab works offline. Keep at least 3 GB of disk free (`df -h ~`).
+- **Internet and disk:** the first Deploy downloads `ghcr.io/srl-labs/network-multitool:v0.10.0` (about 860 MB) and `ghcr.io/neo-fundamentals/neo-tools:1.0.0` (the NEO helper image, a Debian image with the OpenSSH server, about 257 MB). After that the lab works offline. Keep at least 3 GB of disk free (`df -h ~`).
 - **Time:** the first Deploy takes 2 to 5 minutes (downloads); later Deploys take under a minute.
 
 ## What this lab builds
@@ -22,7 +22,7 @@
 
 | Node | What it is | Image (free, public) | How you log in |
 |---|---|---|---|
-| admin-host | The management host. 192.168.50.10/24. Its SSH settings never accept an unknown or a changed host key by themselves (`StrictHostKeyChecking yes`) | `ghcr.io/srl-labs/network-multitool` | Right-click > **Access** > **Attach Shell** |
+| admin-host | The management host. 192.168.50.10/24. Its SSH settings never accept an unknown or a changed host key by themselves (`StrictHostKeyChecking yes`) | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Right-click > **Access** > **Attach Shell** |
 | device | The managed device. 192.168.50.1/24, sshd listens on that address only, user `netops`, keys only | `ghcr.io/neo-fundamentals/neo-tools:1.0.0` | Right-click > **Access** > **Attach Shell** |
 
 All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the private ULA prefix fd00:172:20:20::/64. No password is used: admin-host logs in with a key pair that a script makes after Deploy.
@@ -33,7 +33,7 @@ All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the pri
 - `configs/admin-host/strict.conf` - the client rules (strict host-key checking). `configs/device/sshd_config` - the server settings (keys only, no root login, verbose log).
 - `scripts/setup-keys.sh` - run once after each Deploy: makes the keys inside the containers (nothing secret is stored in this folder).
 - `scripts/device-sshd.sh` - changes the device: `rebuild` (new host key, as if the device had been replaced), `restore`, `stop`, `start`, `fingerprint`.
-- `scripts/make-captures.sh` - re-records the sample captures (the lab must be running and `setup-keys.sh` must have run).
+- `scripts/make-captures.sh` - re-records the sample captures (the lab must be running and `setup-keys.sh` must have run). Run it from the lab folder with `sudo bash scripts/make-captures.sh` (it asks for your password). It overwrites a sample in `captures/` only when the new recording succeeds; a failed one prints `FAIL` and the old sample stays.
 - `multivendor-ssh-management.drawio` and `multivendor-ssh-management.png` - the prepared diagram.
 - `captures/` - five sample captures from admin-host's cable (below).
 

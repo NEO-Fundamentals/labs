@@ -1,14 +1,15 @@
 # Lab: the OSI model with one web page
 
-**Folder:** `labs/osi-http-capture/`  **Lab file:** `osi-http-capture.clab.yml`  **Lesson:** NEO-45 The OSI Model  **Lab version:** 1.0.1 (2026-11-26; README: Before you start, Troubleshooting and Cleanup sections added, diagram re-rendered. Lab file and configs unchanged)
+**Folder:** `labs/osi-http-capture/`  **Lab file:** `osi-http-capture.clab.yml`  **Lesson:** NEO-45 The OSI Model  **Lab version:** 1.0.2 (2026-11-27, kit 1.2.3: DNS sample description, note on the 10.0.2.x range; network-multitool pinned to v0.10.0 (same image); `make-captures.sh` needs sudo and keeps the old sample if a recording fails. Previous: 1.0.1)
 
 ## Before you start
 
 - **Where this runs:** the NEO lab virtual machine from the guide (Ubuntu 24.04, 8 GB of memory, 4 CPUs) with Docker, Containerlab, VS Code (with the Containerlab and Draw.io extensions) and Wireshark. Check in Ubuntu's Terminal: `containerlab version` and `docker --version` each print a version number.
 - **One lab at a time:** `containerlab inspect --all` should say no containers found. If another lab is running, clean it up first (see **Cleanup** in that lab's README).
 - **The lab folder:** `~/labs-main/containerlab/labs/osi-http-capture/` (see the kit README, "Getting the latest labs").
-- **Internet and disk:** the first Deploy downloads `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB) and `ghcr.io/srl-labs/network-multitool` (about 860 MB). After that the lab works offline. Keep at least 2 GB of disk free (`df -h ~`).
+- **Internet and disk:** the first Deploy downloads `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB) and `ghcr.io/srl-labs/network-multitool:v0.10.0` (about 860 MB). After that the lab works offline. Keep at least 2 GB of disk free (`df -h ~`).
 - **Time:** The first Deploy takes 2 to 5 minutes (downloads); later Deploys take under a minute.
+- **Addresses:** this lab uses 10.0.2.x on its own cables. Your VM's VirtualBox network uses the same range (`ip addr` on the VM shows 10.0.2.15/24 on its main interface). They are separate networks that share a number range; use only the lab addresses in this README in the exercises.
 
 ## What this lab builds
 
@@ -20,9 +21,9 @@
 
 | Node | What it is | Image (free, public) | How you log in |
 |---|---|---|---|
-| pc | Linux client. It asks DNS for `www.osi-lab.example`, then loads the page | `ghcr.io/srl-labs/network-multitool` | Right-click > **Access** > **Attach Shell** |
+| pc | Linux client. It asks DNS for `www.osi-lab.example`, then loads the page | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Right-click > **Access** > **Attach Shell** |
 | r1 | FRR router. It only routes between the two LANs | `quay.io/frrouting/frr:containerlab-10.7.1` | Right-click > **Access** > **Attach Shell** (opens `vtysh`) |
-| srv | Linux server running a web server (nginx) and a DNS server (dnsmasq) | `ghcr.io/srl-labs/network-multitool` | Right-click > **Access** > **Attach Shell** |
+| srv | Linux server running a web server (nginx) and a DNS server (dnsmasq) | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Right-click > **Access** > **Attach Shell** |
 
 All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the private ULA prefix fd00:172:20:20::/64. The name `www.osi-lab.example` is fictional (`.example` is reserved for examples) and only the lab's own DNS server knows it.
 
@@ -34,7 +35,7 @@ All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the pri
 - `configs/srv/dnsmasq.conf` - srv's DNS answer for `www.osi-lab.example`.
 - `osi-http-capture.drawio` and `osi-http-capture.png` - the prepared diagram.
 - `captures/` - sample captures recorded from this lab, to open in Wireshark: `osi-http-ok.pcapng` (the page load, E1), `osi-http-refused.pcapng` (web server stopped, E2) and `osi-dns-down.pcapng` (DNS server stopped, E3).
-- `scripts/make-captures.sh` - re-records those three files (the lab must be running).
+- `scripts/make-captures.sh` - re-records those three files (the lab must be running). Run it from the lab folder with `sudo bash scripts/make-captures.sh` (it asks for your password). It overwrites a sample in `captures/` only when the new recording succeeds; a failed one prints `FAIL` and the old sample stays.
 
 ## Start, reset, stop
 
@@ -75,7 +76,7 @@ docker exec clab-osi-http-capture-pc curl -s http://www.osi-lab.example/
 ```
 When the first prompt comes back, open Wireshark > **File > Open...** > Home > `neo-osi-http.pcapng`. Use a new file name each run.
 
-What you should see, in this order: a DNS question and answer (filter `dns`; about 18 packets in the whole file), the TCP three-way handshake (filter `tcp.port == 80`), an HTTP GET and a `200 OK` (filter `http`), then the TCP close. Click the GET packet and open the packet details: Ethernet II (layer 2), Internet Protocol (3), Transmission Control Protocol (4), Hypertext Transfer Protocol (7). The DNS packets are UDP instead of TCP.
+What you should see, in this order (18 packets in the whole sample file): two DNS questions and their answers, one for the IPv6 address (AAAA, which gets no address back) and one for the IPv4 address (A, answered with 172.16.100.80) (filter `dns`), the TCP three-way handshake (filter `tcp.port == 80`), an HTTP GET and a `200 OK` (filter `http`), then the TCP close. Click the GET packet and open the packet details: Ethernet II (layer 2), Internet Protocol (3), Transmission Control Protocol (4), Hypertext Transfer Protocol (7). The DNS packets are UDP instead of TCP.
 
 ## Exercises
 

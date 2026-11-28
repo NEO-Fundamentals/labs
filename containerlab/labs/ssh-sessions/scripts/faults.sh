@@ -1,7 +1,7 @@
 #!/bin/bash
 # Switch one SSH fault on host-b on or off. Run from the lab folder on the VM, for example:
 #   bash scripts/faults.sh refused on      (sshd stopped: nothing listens on port 22, "Connection refused")
-#   bash scripts/faults.sh drop on         (host-b drops packets to port 22: "Connection timed out")
+#   bash scripts/faults.sh drop on         (host-b drops packets to port 22: "Operation timed out" with this lab's client; other clients may say "Connection timed out")
 #   bash scripts/faults.sh banner on       (a silent program holds port 22: "timed out during banner exchange")
 #   bash scripts/faults.sh hostkey on      (host-b gets a new host key: "REMOTE HOST IDENTIFICATION HAS CHANGED")
 # Use "off" to put each one back. "bash scripts/faults.sh status" shows what is on.

@@ -1,6 +1,6 @@
 # Lab: SSH sessions, and the six places an SSH login can fail
 
-**Folder:** `labs/ssh-sessions/`  **Lab file:** `ssh-sessions.clab.yml`  **Lesson:** NEO-04 SSH: a secure session over TCP  **Lab version:** 1.0.0 (2026-11-27)
+**Folder:** `labs/ssh-sessions/`  **Lab file:** `ssh-sessions.clab.yml`  **Lesson:** NEO-04 SSH: a secure session over TCP  **Lab version:** 1.0.1 (2026-11-27, kit 1.2.3: faults.sh help text, note on the 10.0.2.x range; network-multitool pinned to v0.10.0 (same image); `make-captures.sh` needs sudo and keeps the old sample if a recording fails. Previous: 1.0.0)
 
 **What runs and what does not:** the lab runs a real OpenSSH client (host-a), an FRR router (r1) and a real OpenSSH server (host-b). Nothing is simulated. **There is no Junos or EOS in this lab.** No password is used anywhere: host-a logs in with a key pair that a script makes after Deploy.
 
@@ -9,8 +9,9 @@
 - **Where this runs:** the NEO lab virtual machine from the guide (Ubuntu 24.04, 8 GB of memory, 4 CPUs) with Docker, Containerlab, VS Code (with the Containerlab and Draw.io extensions) and Wireshark. Check in Ubuntu's Terminal: `containerlab version` and `docker --version` each print a version number.
 - **One lab at a time:** `containerlab inspect --all` should say no containers found. If another lab is running, clean it up first (see **Cleanup** in that lab's README).
 - **The lab folder:** `~/labs-main/containerlab/labs/ssh-sessions/` (see the kit README, "Getting the latest labs").
-- **Internet and disk:** the first Deploy downloads `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB), `ghcr.io/srl-labs/network-multitool` (about 860 MB) and `ghcr.io/neo-fundamentals/neo-tools:1.0.0` (the NEO helper image, a Debian image with the OpenSSH server, about 257 MB). After that the lab works offline. Keep at least 3 GB of disk free (`df -h ~`).
+- **Internet and disk:** the first Deploy downloads `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB), `ghcr.io/srl-labs/network-multitool:v0.10.0` (about 860 MB) and `ghcr.io/neo-fundamentals/neo-tools:1.0.0` (the NEO helper image, a Debian image with the OpenSSH server, about 257 MB). After that the lab works offline. Keep at least 3 GB of disk free (`df -h ~`).
 - **Time:** the first Deploy takes 2 to 5 minutes (downloads); later Deploys take under a minute, plus about 20 seconds for FRR to apply its address file.
+- **Addresses:** this lab uses 10.0.2.x on its own cables. Your VM's VirtualBox network uses the same range (`ip addr` on the VM shows 10.0.2.15/24 on its main interface). They are separate networks that share a number range; use only the lab addresses in this README in the exercises.
 
 ## What this lab builds
 
@@ -22,7 +23,7 @@
 
 | Node | What it is | Image (free, public) | How you log in |
 |---|---|---|---|
-| host-a | Linux host with the OpenSSH client. Address 10.0.2.10/24, route to 172.16.100.0/24 through r1 | `ghcr.io/srl-labs/network-multitool` | Right-click > **Access** > **Attach Shell** |
+| host-a | Linux host with the OpenSSH client. Address 10.0.2.10/24, route to 172.16.100.0/24 through r1 | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Right-click > **Access** > **Attach Shell** |
 | r1 | FRR router. 10.0.2.1/24 on eth1, 172.16.100.1/24 on eth2 | `quay.io/frrouting/frr:containerlab-10.7.1` | Right-click > **Access** > **Attach Shell** (opens `vtysh`) |
 | host-b | Linux host with the OpenSSH server (port 22, keys only, user `labuser`). Address 172.16.100.20/24 | `ghcr.io/neo-fundamentals/neo-tools:1.0.0` | Right-click > **Access** > **Attach Shell** |
 
@@ -35,7 +36,7 @@ All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the pri
 - `scripts/setup-keys.sh` - run once after each Deploy: makes the key pairs inside the containers (nothing secret is stored in this folder).
 - `scripts/faults.sh` - switches each fault on and off on host-b: `refused`, `drop`, `banner`, `hostkey` (and `status`).
 - `scripts/silent-listener.py` - a tiny program the `banner` fault uses: it accepts the connection and says nothing.
-- `scripts/make-captures.sh` - re-records the sample captures (the lab must be running).
+- `scripts/make-captures.sh` - re-records the sample captures (the lab must be running). Run it from the lab folder with `sudo bash scripts/make-captures.sh` (it asks for your password). It overwrites a sample in `captures/` only when the new recording succeeds; a failed one prints `FAIL` and the old sample stays.
 - `ssh-sessions.drawio` and `ssh-sessions.png` - the prepared diagram.
 - `captures/` - seven sample captures from host-a's cable (below).
 

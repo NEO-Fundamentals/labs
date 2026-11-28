@@ -42,7 +42,7 @@ topology:
         graph-icon: host
         graph-level: 1
       kind: linux
-      image: ghcr.io/srl-labs/network-multitool:latest
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
       exec:
         - ip addr add 192.168.10.10/24 dev eth1
         - ip route add 192.168.20.0/24 via 192.168.10.1
@@ -55,7 +55,7 @@ topology:
         graph-icon: host
         graph-level: 4
       kind: linux
-      image: ghcr.io/srl-labs/network-multitool:latest
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
       exec:
         - ip addr add 192.168.20.10/24 dev eth1
         - ip route add 192.168.10.0/24 via 192.168.20.1

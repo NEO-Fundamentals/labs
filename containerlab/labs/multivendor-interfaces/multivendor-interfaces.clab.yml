@@ -23,7 +23,7 @@ topology:
       startup-config: configs/r-frr.conf
     spare:
       kind: linux
-      image: ghcr.io/srl-labs/network-multitool:latest
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
       labels: {neo-note: "far end of L's spare port", graph-icon: host, graph-level: 2, graph-posX: 150, graph-posY: 350}
       cmd: sleep infinity
 

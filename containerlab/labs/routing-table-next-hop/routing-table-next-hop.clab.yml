@@ -15,7 +15,7 @@ topology:
   nodes:
     host-1:
       kind: linux
-      image: ghcr.io/srl-labs/network-multitool:latest
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
       labels: {neo-note: "10.1.1.10, gw 10.1.1.1", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 200}
       exec:
         - ip addr add 10.1.1.10/24 dev eth1
@@ -32,15 +32,15 @@ topology:
       startup-config: configs/r2-srl.cli
     host-2:
       kind: linux
-      image: ghcr.io/srl-labs/network-multitool:latest
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
       labels: {neo-note: "10.2.2.10, gw 10.2.2.1", graph-icon: host, graph-level: 4, graph-posX: 850, graph-posY: 200}
       exec:
         - ip addr add 10.2.2.10/24 dev eth1
         - ip route add 10.0.0.0/8 via 10.2.2.1
     sink:
       kind: linux
-      image: ghcr.io/srl-labs/network-multitool:latest
-      labels: {neo-note: "10.0.99.2, does not forward", graph-icon: host, neo-role: server, graph-level: 3, graph-posX: 350, graph-posY: 400}
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "10.0.99.2 on 10.0.99.0/30, does not forward", graph-icon: host, neo-role: server, graph-level: 3, graph-posX: 350, graph-posY: 400}
       exec:
         - ip addr add 10.0.99.2/30 dev eth1
         - sysctl -q -w net.ipv4.ip_forward=0
@@ -65,4 +65,4 @@ topology:
       endpoints:
         - {node: r1, interface: eth3}
         - {node: sink, interface: eth1}
-      labels: {neo-net: "10.0.99.0/30"}
+      labels: {neo-capture: "r1:eth3"}  # subnet is in the sink note (the badge sits on this short link)

@@ -1,6 +1,6 @@
 # Lab: routing tables, the longest match and the next hop (FRR and SR Linux)
 
-**Folder:** `labs/routing-table-next-hop/`  **Lab file:** `routing-table-next-hop.clab.yml`  **Lesson:** NEO-09 Routing tables, longest-prefix match, ARP, and the next hop  **Lab version:** 1.0.0 (2026-11-27)
+**Folder:** `labs/routing-table-next-hop/`  **Lab file:** `routing-table-next-hop.clab.yml`  **Lesson:** NEO-09 Routing tables, longest-prefix match, ARP, and the next hop  **Lab version:** 1.0.1 (2026-11-27, kit 1.2.3: capture badge on the sink cable, diagram re-rendered; network-multitool pinned to v0.10.0 (same image); `make-captures.sh` needs sudo and keeps the old sample if a recording fails. Previous: 1.0.0)
 
 **What runs and what does not:** the lab runs a real FRR router (r1), a real Nokia SR Linux router (r2) and three Linux hosts. **There is no Arista EOS or Juniper Junos in this lab.**
 
@@ -9,7 +9,7 @@
 - **Where this runs:** the NEO lab virtual machine from the guide (Ubuntu 24.04, 8 GB of memory, 4 CPUs) with Docker, Containerlab, VS Code (with the Containerlab and Draw.io extensions) and Wireshark. Check in Ubuntu's Terminal: `containerlab version` and `docker --version` each print a version number.
 - **One lab at a time:** `containerlab inspect --all` should say no containers found. If another lab is running, clean it up first (see **Cleanup** in that lab's README).
 - **The lab folder:** `~/labs-main/containerlab/labs/routing-table-next-hop/` (see the kit README, "Getting the latest labs").
-- **Internet and disk:** the first Deploy downloads `ghcr.io/nokia/srlinux:26.7.2` (about 2.4 GB on disk), `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB) and `ghcr.io/srl-labs/network-multitool` (about 860 MB). After that the lab works offline. Keep at least 4 GB of disk free (`df -h ~`).
+- **Internet and disk:** the first Deploy downloads `ghcr.io/nokia/srlinux:26.7.2` (about 2.4 GB on disk), `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB) and `ghcr.io/srl-labs/network-multitool:v0.10.0` (about 860 MB). After that the lab works offline. Keep at least 4 GB of disk free (`df -h ~`).
 - **Time:** the first Deploy takes 5 to 10 minutes (downloads); later Deploys take about 2 minutes. **Then wait 1 to 2 more minutes:** FRR loads its routes 10 to 20 seconds after the containers start, and SR Linux needs one to two minutes. Do not trust the ping until the check in **Start** passes.
 
 ## What this lab builds
@@ -24,11 +24,11 @@
 
 | Node | What it is | Image (free, public) | How you log in |
 |---|---|---|---|
-| host-1 | Linux host 10.1.1.10/24, gateway r1 (10.1.1.1) | `ghcr.io/srl-labs/network-multitool` | Right-click > **Access** > **Attach Shell** |
+| host-1 | Linux host 10.1.1.10/24, gateway r1 (10.1.1.1) | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Right-click > **Access** > **Attach Shell** |
 | r1 | FRR router: 10.1.1.1/24 (eth1), 10.0.12.1/30 (eth2), 10.0.99.1/30 (eth3). Static routes: 10.2.2.0/24 via r2 and the wider 10.2.0.0/16 via sink | `quay.io/frrouting/frr:containerlab-10.7.1` | Attach Shell (opens `vtysh`) |
 | r2 | SR Linux router: 10.0.12.2/30 (ethernet-1/1), 10.2.2.1/24 (ethernet-1/2). Static routes back to 10.1.1.0/24 and 10.0.99.0/30 via r1 | `ghcr.io/nokia/srlinux:26.7.2` | Attach Shell (opens `sr_cli`) |
-| host-2 | Linux host 10.2.2.10/24, gateway r2 (10.2.2.1) | `ghcr.io/srl-labs/network-multitool` | Attach Shell |
-| sink | Linux host 10.0.99.2/30 that does not forward packets: a dead end for a wrong route | `ghcr.io/srl-labs/network-multitool` | Attach Shell |
+| host-2 | Linux host 10.2.2.10/24, gateway r2 (10.2.2.1) | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Attach Shell |
+| sink | Linux host 10.0.99.2/30 that does not forward packets: a dead end for a wrong route | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Attach Shell |
 
 All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the private ULA prefix fd00:172:20:20::/64. **r2 shows twice under Running Labs**; the second is SR Linux's internal helper, ignore it.
 
@@ -37,7 +37,7 @@ All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the pri
 - `routing-table-next-hop.clab.yml` - the lab drawing.
 - `configs/r1-frr.conf` (FRR: interfaces and static routes), `configs/r2-srl.cli` (SR Linux: interfaces and static routes).
 - `changes/` - small command files you feed to r1: `r1-add-host-route.txt` (the wrong /32 route) and `r1-remove-host-route.txt`.
-- `scripts/make-captures.sh` - re-records the sample captures (the lab must be running; it waits up to 6 minutes for the path to work).
+- `scripts/make-captures.sh` - re-records the sample captures (the lab must be running; it waits up to 6 minutes for the path to work). Run it from the lab folder with `sudo bash scripts/make-captures.sh` (it asks for your password). It overwrites a sample in `captures/` only when the new recording succeeds; a failed one prints `FAIL` and the old sample stays.
 - `routing-table-next-hop.drawio` and `routing-table-next-hop.png` - the prepared diagram.
 - `captures/` - three sample captures: `nexthop-hop1-host1.pcapng`, `nexthop-hop2-transit.pcapng`, `nexthop-hostroute-sink.pcapng`.
 

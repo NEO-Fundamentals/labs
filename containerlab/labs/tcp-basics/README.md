@@ -1,14 +1,15 @@
 # Lab: TCP connections that work, get refused, and fail silently
 
-**Folder:** `labs/tcp-basics/`  **Lab file:** `tcp-basics.clab.yml`  **Lesson:** NEO-01 TCP Basics  **Lab version:** 1.0.1 (2026-11-26; README: Before you start, Troubleshooting and Cleanup sections added, diagram re-rendered. Lab file and configs unchanged)
+**Folder:** `labs/tcp-basics/`  **Lab file:** `tcp-basics.clab.yml`  **Lesson:** NEO-01 TCP Basics  **Lab version:** 1.0.2 (2026-11-27, kit 1.2.3: note on the 10.0.2.x range; network-multitool pinned to v0.10.0 (same image); `make-captures.sh` needs sudo and keeps the old sample if a recording fails. Previous: 1.0.1)
 
 ## Before you start
 
 - **Where this runs:** the NEO lab virtual machine from the guide (Ubuntu 24.04, 8 GB of memory, 4 CPUs) with Docker, Containerlab, VS Code (with the Containerlab and Draw.io extensions) and Wireshark. Check in Ubuntu's Terminal: `containerlab version` and `docker --version` each print a version number.
 - **One lab at a time:** `containerlab inspect --all` should say no containers found. If another lab is running, clean it up first (see **Cleanup** in that lab's README).
 - **The lab folder:** `~/labs-main/containerlab/labs/tcp-basics/` (see the kit README, "Getting the latest labs").
-- **Internet and disk:** the first Deploy downloads `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB) and `ghcr.io/srl-labs/network-multitool` (about 860 MB). After that the lab works offline. Keep at least 2 GB of disk free (`df -h ~`).
+- **Internet and disk:** the first Deploy downloads `quay.io/frrouting/frr:containerlab-10.7.1` (about 200 MB) and `ghcr.io/srl-labs/network-multitool:v0.10.0` (about 860 MB). After that the lab works offline. Keep at least 2 GB of disk free (`df -h ~`).
 - **Time:** The first Deploy takes 2 to 5 minutes (downloads); later Deploys take under a minute.
+- **Addresses:** this lab uses 10.0.2.x on its own cables. Your VM's VirtualBox network uses the same range (`ip addr` on the VM shows 10.0.2.15/24 on its main interface). They are separate networks that share a number range; use only the lab addresses in this README in the exercises.
 
 ## What this lab builds
 
@@ -20,9 +21,9 @@
 
 | Node | What it is | Image (free, public) | How you log in |
 |---|---|---|---|
-| host-a | Linux client. It opens the connections | `ghcr.io/srl-labs/network-multitool` | Right-click > **Access** > **Attach Shell** |
+| host-a | Linux client. It opens the connections | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Right-click > **Access** > **Attach Shell** |
 | r1 | FRR router. It only routes; in Run 3 it also drops packets on purpose | `quay.io/frrouting/frr:containerlab-10.7.1` | Right-click > **Access** > **Attach Shell** (opens `vtysh`) |
-| host-b | Linux server. No service runs until you start one (Run 1) | `ghcr.io/srl-labs/network-multitool` | Right-click > **Access** > **Attach Shell** |
+| host-b | Linux server. No service runs until you start one (Run 1) | `ghcr.io/srl-labs/network-multitool:v0.10.0` | Right-click > **Access** > **Attach Shell** |
 
 All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the private ULA prefix fd00:172:20:20::/64.
 
@@ -32,7 +33,7 @@ All IPv4 addresses are private (RFC 1918). Management IPv6 addresses use the pri
 - `configs/r1-frr.conf` - r1's addresses.
 - `tcp-basics.drawio` and `tcp-basics.png` - the prepared diagram.
 - `captures/` - sample captures recorded from this lab, to open in Wireshark: `tcp-run1-normal.pcapng`, `tcp-run2-refused.pcapng`, `tcp-run3-silent-drop.pcapng`.
-- `scripts/make-captures.sh` - re-records those three files (the lab must be running).
+- `scripts/make-captures.sh` - re-records those three files (the lab must be running). Run it from the lab folder with `sudo bash scripts/make-captures.sh` (it asks for your password). It overwrites a sample in `captures/` only when the new recording succeeds; a failed one prints `FAIL` and the old sample stays.
 
 ## Start, reset, stop
 
