@@ -1,0 +1,16 @@
+# fw: the lab firewall (loaded at deploy). eth1 = toward r1 and h1, eth2 = toward r2 and h2.
+# Default drop for traffic through fw; replies (and the ICMP errors that belong to a session) pass; new sessions only
+# from the h1 side to h2's LAN: ping, traceroute's UDP probes (ports 33434-33534) and web (TCP 80).
+# Reloading this file puts fw's rules back exactly as at deploy (it replaces the whole table).
+table inet fw
+delete table inet fw
+table inet fw {
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        ct state established,related counter accept comment "replies of known sessions"
+        iifname "eth1" oifname "eth2" ip daddr 10.24.2.0/24 icmp type echo-request counter accept comment "ping to h2's LAN"
+        iifname "eth1" oifname "eth2" ip daddr 10.24.2.0/24 udp dport 33434-33534 counter accept comment "traceroute to h2's LAN"
+        iifname "eth1" oifname "eth2" ip daddr 10.24.2.0/24 tcp dport 80 counter accept comment "web to h2's LAN"
+        counter drop comment "everything else"
+    }
+}

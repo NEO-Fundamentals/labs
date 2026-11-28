@@ -1,0 +1,33 @@
+# A commercial NMS and SR Linux SNMP commands for the same checks as this lab. TEXT ONLY: nothing in the lab
+# loads or runs this file, and there is no commercial NMS or SR Linux software here. The lab runs Net-SNMP (snmpd on
+# r1, and scripts/snmp.py and scripts/poller.py on the poller). Addresses are the lab's (RFC 1918).
+
+# --- Discover the device and its interfaces (SNMPv2c) ---
+# A commercial NMS: add a node with IP 10.27.1.1, SNMPv2c community neo; the node list shows sysName, sysDescr,
+#   sysLocation, and a list of interfaces with status and traffic.
+# SR Linux (Nokia):
+/system snmp community neo
+/system snmp community neo access-group ReadOnly
+/show system snmp
+# then from a poller: snmpwalk -v2c -c neo 10.27.1.1 sysName
+#                     snmpwalk -v2c -c neo 10.27.1.1 ifDescr
+#                     snmpwalk -v2c -c neo 10.27.1.1 ifOperStatus
+#                     snmpwalk -v2c -c neo 10.27.1.1 ifHCInOctets     (64-bit counters; this lab uses ifInOctets)
+# (here: python3 /neo/scripts/snmp.py get|walk|interfaces 10.27.1.1 neo ...)
+
+# --- An alert when an interface goes down, or when traffic crosses a threshold ---
+# A commercial NMS: a trigger on "Interface Operational Status is Down" and a traffic trigger
+#   "received + transmitted bytes in 5 minutes > N". The alert list names the node, the interface and the reason.
+# (here: python3 /neo/scripts/poller.py --iface eth2 --interval 5 --threshold 20000)
+
+# --- Why a capture of the poller link shows the community string ---
+# SNMPv2c has no encryption and no per-user authentication; the community string is the secret, in the clear.
+# SNMPv3 (recommended on a real network) uses a user, auth and (optionally) privacy:
+# SR Linux:
+/system snmp access-group Secure
+/system snmp access-group Secure security-level priv
+/system snmp user lab-monitor
+/system snmp user lab-monitor access-group Secure
+/system snmp user lab-monitor authentication hash-algorithm sha password-hash <hash>
+/system snmp user lab-monitor privacy aes-128-cfb password-hash <hash>
+# A commercial NMS: the same node's "SNMPv3" credentials (user, auth, privacy), not a community string.

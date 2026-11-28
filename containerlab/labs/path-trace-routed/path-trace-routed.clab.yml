@@ -1,0 +1,80 @@
+# NEO lab for "Path trace: finding the entry point and walking the routed path": h1 reaches h2's web server through
+# two routers and a firewall, five boxes in a line. You find where h1's traffic enters the network (its gateway), walk
+# the path hop by hop in both directions, and then find two faults that scripts/fault.sh puts in place.
+# r1, r2 = FRR routers (free, Cisco-style CLI), static routes. fw = Linux router with nftables (the NEO helper image).
+# h1, h2 = Linux containers (the NEO helper image); h2 runs a web server on port 80.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: path-trace-routed
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    h1:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.24.1.10, gw 10.24.1.1", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 200}
+      exec:
+        - ip addr add 10.24.1.10/24 dev eth1
+        - ip route replace default via 10.24.1.1
+    r1:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, static routes", graph-icon: router, graph-level: 2, graph-posX: 380, graph-posY: 200}
+      startup-config: configs/r1-frr.conf
+    fw:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "Linux nftables, routes", graph-icon: router, neo-role: firewall, graph-level: 3, graph-posX: 660, graph-posY: 200}
+      binds:
+        - configs:/neo/configs:ro
+        - changes:/neo/changes:ro
+      exec:
+        - ip addr add 10.24.12.2/24 dev eth1
+        - ip addr add 10.24.23.2/24 dev eth2
+        - ip route add 10.24.1.0/24 via 10.24.12.1
+        - ip route add 10.24.2.0/24 via 10.24.23.3
+        - sysctl -q -w net.ipv4.ip_forward=1
+        - nft -f /neo/configs/fw-rules.nft
+    r2:
+      kind: frr
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      labels: {neo-note: "FRR, static routes", graph-icon: router, graph-level: 4, graph-posX: 940, graph-posY: 200}
+      startup-config: configs/r2-frr.conf
+    h2:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.24.2.20, web :80", graph-icon: host, neo-role: server, graph-level: 5, graph-posX: 1220, graph-posY: 200}
+      exec:
+        - ip addr add 10.24.2.20/24 dev eth1
+        - ip route replace default via 10.24.2.1
+        - sh -c 'echo "hello from h2 (10.24.2.20)" > /srv/www/index.html'
+        # a name for 10.24.2.20 in /etc/hosts lets the web server start at once (no DNS lookup for its own address)
+        - sh -c 'echo "10.24.2.20 h2-web" >> /etc/hosts'
+        - sh -c 'nohup python3 -m http.server 80 --bind 10.24.2.20 --directory /srv/www >/var/log/web.log 2>&1 &'
+
+  links:
+    - type: veth  # h1's LAN, 10.24.1.0/24: the entry point is r1's eth1
+      endpoints:
+        - {node: h1, interface: eth1}
+        - {node: r1, interface: eth1}
+      labels: {neo-net: "10.24.1.0/24", neo-capture: "h1:eth1"}
+    - type: veth  # r1 - fw, 10.24.12.0/24
+      endpoints:
+        - {node: r1, interface: eth2}
+        - {node: fw, interface: eth1}
+      labels: {neo-net: "10.24.12.0/24", neo-capture: "fw:eth1"}
+    - type: veth  # fw - r2, 10.24.23.0/24
+      endpoints:
+        - {node: fw, interface: eth2}
+        - {node: r2, interface: eth1}
+      labels: {neo-net: "10.24.23.0/24", neo-capture: "fw:eth2"}
+    - type: veth  # h2's LAN, 10.24.2.0/24
+      endpoints:
+        - {node: r2, interface: eth2}
+        - {node: h2, interface: eth1}
+      labels: {neo-net: "10.24.2.0/24", neo-capture: "h2:eth1"}

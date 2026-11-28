@@ -1,0 +1,22 @@
+# A commercial wire-data tool (and Cisco SPAN) commands for the same checks as this lab. TEXT ONLY: nothing in the lab
+# loads or runs this file, and there is no commercial wire-data product here. The lab is a Linux bridge with MAC
+# learning turned off (a hub stand-in) and tcpdump on a sensor with no address on that link. Addresses are the lab's
+# (RFC 1918).
+
+# --- Put a sensor on a SPAN or TAP (the real thing; this lab does not configure a switch SPAN) ---
+# Cisco-style:
+monitor session 1 source interface GigabitEthernet1/0/1, Gi1/0/2 both
+monitor session 1 destination interface GigabitEthernet1/0/24
+# Then attach the sensor to Gi1/0/24. A TAP would copy both directions without a switch command.
+# (here: the hub floods every frame to every port, including the sensor's eth1; that is the stand-in.)
+
+# --- Inventory the hosts that talk, from the wire ---
+# A commercial wire-data tool: a device list built from the addresses seen on the wire (MAC, IP, and often a name
+#   or role guessed from the traffic). A new device that was not in the inventory is flagged.
+# (here: tcpdump -lni eth1, or open the capture in Wireshark: Statistics > Endpoints, or the display filters
+#   arp, http, ip.addr == 10.28.1.99)
+
+# --- What is the unknown host doing? ---
+# A commercial wire-data tool: a conversation or "records" view (client, server, method, path, status). Unusual
+#   paths (here: GET /admin) stand out next to the known client's GET /.
+# (here: tcpdump -lni eth1 -A tcp port 80, or Wireshark display filter http.request.uri == "/admin")

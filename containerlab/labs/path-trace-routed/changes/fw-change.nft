@@ -1,0 +1,3 @@
+# A firewall change, loaded by scripts/fault.sh 2: "CHG-0042, block web traffic to the old server 10.24.2.200".
+# It was written for one address, but typed with the whole subnet. Inserted at the TOP of the forward chain.
+insert rule inet fw forward ip daddr 10.24.2.0/24 tcp dport 80 counter drop comment "CHG-0042 block old web server"

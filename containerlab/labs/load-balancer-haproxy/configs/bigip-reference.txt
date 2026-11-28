@@ -1,0 +1,14 @@
+# TEXT ONLY: the same setup in F5 BIG-IP tmsh syntax, to compare with haproxy.cfg. Nothing in the lab loads this file;
+# there is no BIG-IP in the lab. Addresses are the lab's private ones.
+create net self server_side address 10.22.2.1/24 vlan server_vlan
+create ltm monitor http mon_health send "GET /health HTTP/1.0\r\n\r\n" recv "ok" interval 2 timeout 7
+create ltm pool pool_web load-balancing-mode round-robin monitor mon_health members add { 10.22.2.11:80 10.22.2.12:80 10.22.2.13:80 }
+create ltm virtual vs_web destination 10.22.1.100:80 ip-protocol tcp profiles add { http } pool pool_web source-address-translation { type automap }
+create ltm persistence cookie persist_cookie method insert cookie-name NEO_LB
+create ltm pool pool_app load-balancing-mode round-robin monitor mon_health members add { 10.22.2.11:80 10.22.2.12:80 10.22.2.13:80 }
+create ltm virtual vs_app destination 10.22.1.100:8080 ip-protocol tcp profiles add { http } pool pool_app persist replace-all-with { persist_cookie } source-address-translation { type automap }
+# The show and change commands of the exercises:
+#   show ltm pool pool_web members            (exercises 1 and 3)
+#   modify ltm pool pool_web members modify { 10.22.2.11:80 { ratio 3 } } load-balancing-mode ratio-member   (exercise 4)
+#   modify ltm pool pool_web members modify { 10.22.2.13:80 { session user-disabled } }                      (exercise 4)
+# BIG-IP's HTTP profile inserts X-Forwarded-For only when "insert-xforwarded-for enabled" is set on the profile.

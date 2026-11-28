@@ -1,0 +1,102 @@
+# NEO lab for "F5 troubleshooting: when the VIP is up and the application is down": the load balancer of NEO-22 with
+# faults to find. lb = HAProxy (the NEO helper image), a free, open-source load balancer that stands in for an F5 BIG-IP:
+# it is NOT a BIG-IP and there is no F5 software here. configs/haproxy.cfg uses BIG-IP names (virtual server, pool,
+# monitor); configs/bigip-reference.txt lists the BIG-IP tmsh commands for the same checks, as text to compare.
+# scripts/fault.sh puts one fault in place per exercise; changes/ holds the configuration files the exercises load.
+# client -- lb: the client side, 10.23.1.0/24; the virtual server's address (VIP) is 10.23.1.100.
+# lb -- sw -- web-1, web-2, web-3: the server side, 10.23.2.0/24; lb's own address there is 10.23.2.1 (the self IP).
+# sw is a plain Linux bridge. The web servers have no route to the client side (lb always connects from 10.23.2.1).
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: load-balancer-troubleshooting
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    client:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.23.1.10", graph-icon: host, graph-level: 1, graph-posX: 100, graph-posY: 250}
+      exec:
+        - ip addr add 10.23.1.10/24 dev eth1
+    lb:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "HAProxy, VIP 10.23.1.100", graph-icon: router, neo-role: load-balancer, graph-level: 2, graph-posX: 380, graph-posY: 250}
+      binds:
+        - configs:/neo/configs:ro
+        - changes:/neo/changes:ro
+        - scripts:/neo/scripts:ro
+      exec:
+        - ip addr add 10.23.1.1/24 dev eth1
+        - ip addr add 10.23.1.100/24 dev eth1
+        - ip addr add 10.23.2.1/24 dev eth2
+        # lb is not a router: the client can reach the servers only through the virtual server
+        - sysctl -q -w net.ipv4.ip_forward=0
+        - sh /neo/scripts/reload.sh /neo/configs/haproxy.cfg
+    sw:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:v0.10.0
+      labels: {neo-note: "server switch (Linux bridge)", graph-icon: switch, graph-level: 3, graph-posX: 640, graph-posY: 250}
+      exec:
+        - ip link add br0 type bridge
+        - ip link set eth1 master br0
+        - ip link set eth2 master br0
+        - ip link set eth3 master br0
+        - ip link set eth4 master br0
+        - ip link set br0 up
+    web-1:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "pool member 10.23.2.11:80", graph-icon: host, neo-role: server, graph-level: 4, graph-posX: 900, graph-posY: 100}
+      binds:
+        - scripts:/neo/scripts:ro
+      exec:
+        - ip addr add 10.23.2.11/24 dev eth1
+        - sh -c 'nohup python3 -u /neo/scripts/web_echo.py web-1 >/var/log/web.log 2>&1 &'
+    web-2:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "pool member 10.23.2.12:80", graph-icon: host, neo-role: server, graph-level: 4, graph-posX: 900, graph-posY: 250}
+      binds:
+        - scripts:/neo/scripts:ro
+      exec:
+        - ip addr add 10.23.2.12/24 dev eth1
+        - sh -c 'nohup python3 -u /neo/scripts/web_echo.py web-2 >/var/log/web.log 2>&1 &'
+    web-3:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "pool member 10.23.2.13:80", graph-icon: host, neo-role: server, graph-level: 4, graph-posX: 900, graph-posY: 400}
+      binds:
+        - scripts:/neo/scripts:ro
+      exec:
+        - ip addr add 10.23.2.13/24 dev eth1
+        - sh -c 'nohup python3 -u /neo/scripts/web_echo.py web-3 >/var/log/web.log 2>&1 &'
+
+  links:
+    - type: veth  # client side, 10.23.1.0/24 (the VIP 10.23.1.100 lives here)
+      endpoints:
+        - {node: client, interface: eth1}
+        - {node: lb, interface: eth1}
+      labels: {neo-net: "client side 10.23.1.0/24", neo-capture: "lb:eth1"}
+    - type: veth  # server side, 10.23.2.0/24
+      endpoints:
+        - {node: lb, interface: eth2}
+        - {node: sw, interface: eth1}
+      labels: {neo-net: "server side 10.23.2.0/24", neo-capture: "lb:eth2"}
+    - type: veth
+      endpoints:
+        - {node: sw, interface: eth2}
+        - {node: web-1, interface: eth1}
+    - type: veth
+      endpoints:
+        - {node: sw, interface: eth3}
+        - {node: web-2, interface: eth1}
+    - type: veth
+      endpoints:
+        - {node: sw, interface: eth4}
+        - {node: web-3, interface: eth1}

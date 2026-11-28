@@ -1,0 +1,31 @@
+# F5 BIG-IP tmsh commands for the same checks as this lab. TEXT ONLY: nothing in the lab loads or runs this file, and
+# there is no F5 software here. The lab runs HAProxy; each line below names the HAProxy command the README uses.
+# Addresses are the lab's (RFC 1918). The setup itself is the one of NEO-22 (see that lab's bigip-reference.txt).
+
+# --- Is the virtual server up, and is its pool? ---
+show ltm virtual vs_web                      # Availability: available / offline ("The children pool member(s) are down")
+show ltm pool pool_web members               # each member: Availability, State, Monitor status   (here: stats CSV, fields 18, 37, 38)
+show ltm pool pool_web members field-fmt     # per-member counters, incl. HTTP status codes      (here: stats CSV, field 44 = 5xx answers)
+
+# --- Why is a member down? ---
+show ltm monitor http mon_health             # the monitor's send string (GET /health) and receive string
+# the member's "Monitor status" reason, e.g. "down: connection refused" or "down: receive string not found"
+#                                            (here: check_status L4CON / L7STS and check_code 404 / 500 in the stats CSV,
+#                                             and "Server pool_web/web-1 is DOWN, reason: ..." in /var/log/haproxy.log)
+
+# --- Ask the member yourself, from the load balancer (bash on the BIG-IP) ---
+curl -s -o /dev/null -w '%{http_code}\n' http://10.23.2.11/health
+curl -s -o /dev/null -w '%{http_code}\n' http://10.23.2.11/
+tcpdump -ni 0.0:nnn host 10.23.2.11 and port 80   # 0.0 = all VLANs, :nnn = with the BIG-IP's flow details
+
+# --- Take a member out of service, and back ---
+modify ltm pool pool_web members modify { 10.23.2.13:80 { session user-disabled } }
+modify ltm pool pool_web members modify { 10.23.2.13:80 { session user-enabled } }
+
+# --- A better monitor: test the real page, not only that the server answers ---
+create ltm monitor http mon_page defaults-from http send "GET / HTTP/1.1\r\nHost: web\r\nConnection: close\r\n\r\n" recv "served by" interval 2 timeout 7
+modify ltm pool pool_web monitor mon_page
+
+# --- Load a configuration the careful way: verify first ---
+load sys config file /var/tmp/change.scf verify   # check only, changes nothing          (here: haproxy -c -f <file>)
+load sys config file /var/tmp/change.scf          # load it                               (here: sh /neo/scripts/reload.sh <file>)

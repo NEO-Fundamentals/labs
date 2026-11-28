@@ -1,0 +1,152 @@
+# NEO lab for "Structured troubleshooting capstone": one topology that joins the routed path of NEO-24 and the
+# access-port switch of NEO-25. You practise a fixed method (state the problem, then Layer 2, then the routed path
+# both ways, then the service) on three faults that scripts/fault.sh puts in place.
+# r1, fw, r2 = Linux routers (the NEO helper image). fw also runs nftables. No FRR and no SR Linux: the method is the
+#      same as in NEO-24, and the lab stays small (a few tens of MB). The Cisco-style commands from NEO-24 and NEO-25
+#      are listed as text to compare.
+# sw = a Linux switch with one bridge per VLAN (as in NEO-25). No 802.1Q trunk.
+# host-a, host-b (VLAN 10), host-c (VLAN 20), h2 (web :80) = Linux containers. Lab MAC addresses are set by hand
+#      (02:00:00:26:...) so the README can name them; 02: marks a locally administered address.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: troubleshooting-capstone
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    r1:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "gateway 10.26.10.1 and 10.26.20.1", graph-icon: router, graph-level: 1, graph-posX: 450, graph-posY: 40}
+      binds:
+        - configs:/neo/configs:ro
+      exec:
+        - ip link set dev eth1 address 02:00:00:26:10:01
+        - ip link set dev eth2 address 02:00:00:26:20:01
+        - ip addr add 10.26.10.1/24 dev eth1
+        - ip addr add 10.26.20.1/24 dev eth2
+        - ip addr add 10.26.12.1/24 dev eth3
+        - ip route add 10.26.23.0/24 via 10.26.12.2
+        - ip route add 10.26.2.0/24 via 10.26.12.2
+        - sysctl -q -w net.ipv4.conf.all.arp_ignore=1
+        - sysctl -q -w net.ipv4.ip_forward=1
+        - ip route del default
+    fw:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "Linux nftables, routes", graph-icon: router, neo-role: firewall, graph-level: 1, graph-posX: 820, graph-posY: 40}
+      binds:
+        - configs:/neo/configs:ro
+        - changes:/neo/changes:ro
+      exec:
+        - ip addr add 10.26.12.2/24 dev eth1
+        - ip addr add 10.26.23.2/24 dev eth2
+        - ip route add 10.26.10.0/24 via 10.26.12.1
+        - ip route add 10.26.20.0/24 via 10.26.12.1
+        - ip route add 10.26.2.0/24 via 10.26.23.3
+        - sysctl -q -w net.ipv4.ip_forward=1
+        - ip route del default
+        - nft -f /neo/configs/fw-rules.nft
+    r2:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "Linux router, static routes", graph-icon: router, graph-level: 1, graph-posX: 1190, graph-posY: 40}
+      exec:
+        - ip addr add 10.26.23.3/24 dev eth1
+        - ip addr add 10.26.2.1/24 dev eth2
+        - ip route add 10.26.12.0/24 via 10.26.23.2
+        - ip route add 10.26.10.0/24 via 10.26.23.2
+        - ip route add 10.26.20.0/24 via 10.26.23.2
+        - sysctl -q -w net.ipv4.ip_forward=1
+        - ip route del default
+    h2:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.26.2.20, web :80", graph-icon: host, neo-role: server, graph-level: 1, graph-posX: 1560, graph-posY: 40}
+      exec:
+        - ip addr add 10.26.2.20/24 dev eth1
+        - ip route replace default via 10.26.2.1
+        - sh -c 'echo "hello from h2 (10.26.2.20)" > /srv/www/index.html'
+        - sh -c 'echo "10.26.2.20 h2-web" >> /etc/hosts'
+        - sh -c 'nohup python3 -m http.server 80 --bind 10.26.2.20 --directory /srv/www >/var/log/web.log 2>&1 &'
+    sw:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "Linux switch: bridge per VLAN", graph-icon: switch, graph-level: 2, graph-posX: 450, graph-posY: 380}
+      exec:
+        - ip link add vlan10 type bridge
+        - ip link add vlan20 type bridge
+        - sh -c "for i in eth1 eth2 eth3; do ip link set $i master vlan10; done"
+        - sh -c "for i in eth4 eth5; do ip link set $i master vlan20; done"
+        - ip link set vlan10 up
+        - ip link set vlan20 up
+    host-a:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.26.10.11, VLAN 10", graph-icon: host, graph-level: 3, graph-posX: 150, graph-posY: 640}
+      exec:
+        - ip link set dev eth1 address 02:00:00:26:10:11
+        - ip addr add 10.26.10.11/24 dev eth1
+        - ip route replace default via 10.26.10.1
+    host-b:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.26.10.12, VLAN 10", graph-icon: host, graph-level: 3, graph-posX: 450, graph-posY: 640}
+      exec:
+        - ip link set dev eth1 address 02:00:00:26:10:12
+        - ip addr add 10.26.10.12/24 dev eth1
+        - ip route replace default via 10.26.10.1
+    host-c:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.26.20.13, VLAN 20", graph-icon: host, graph-level: 3, graph-posX: 750, graph-posY: 640}
+      exec:
+        - ip link set dev eth1 address 02:00:00:26:20:13
+        - ip addr add 10.26.20.13/24 dev eth1
+        - ip route replace default via 10.26.20.1
+
+  links:
+    - type: veth  # r1's VLAN 10 link (10.26.10.0/24)
+      endpoints:
+        - {node: r1, interface: eth1}
+        - {node: sw, interface: eth1}
+      labels: {neo-net: "VLAN 10 uplink", neo-capture: "sw:eth1"}
+    - type: veth  # r1's VLAN 20 link (10.26.20.0/24)
+      endpoints:
+        - {node: r1, interface: eth2}
+        - {node: sw, interface: eth5}
+      labels: {neo-net: "VLAN 20 uplink", neo-capture: "sw:eth5"}
+    - type: veth
+      endpoints:
+        - {node: sw, interface: eth2}
+        - {node: host-a, interface: eth1}
+      labels: {neo-net: "VLAN 10"}
+    - type: veth
+      endpoints:
+        - {node: sw, interface: eth3}
+        - {node: host-b, interface: eth1}
+      labels: {neo-net: "VLAN 10", neo-capture: "sw:eth3"}
+    - type: veth
+      endpoints:
+        - {node: sw, interface: eth4}
+        - {node: host-c, interface: eth1}
+      labels: {neo-net: "VLAN 20"}
+    - type: veth  # r1 - fw, 10.26.12.0/24
+      endpoints:
+        - {node: r1, interface: eth3}
+        - {node: fw, interface: eth1}
+      labels: {neo-net: "10.26.12.0/24", neo-capture: "fw:eth1"}
+    - type: veth  # fw - r2, 10.26.23.0/24
+      endpoints:
+        - {node: fw, interface: eth2}
+        - {node: r2, interface: eth1}
+      labels: {neo-net: "10.26.23.0/24", neo-capture: "fw:eth2"}
+    - type: veth  # h2's LAN, 10.26.2.0/24
+      endpoints:
+        - {node: r2, interface: eth2}
+        - {node: h2, interface: eth1}
+      labels: {neo-net: "10.26.2.0/24", neo-capture: "h2:eth1"}

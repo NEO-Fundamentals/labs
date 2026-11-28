@@ -1,0 +1,56 @@
+# NEO lab for "Monitoring and alerting": a Linux poller asks a Linux router for its
+# interface counters and status over SNMPv2c (Net-SNMP), then raises an alert when a link goes down or when
+# traffic in one poll interval crosses a threshold. This is Net-SNMP, not a commercial NMS; commercial NMS
+# and SR Linux SNMP commands are listed as text to compare. No SR Linux in this lab (Linux snmpd teaches the
+# same here, in a few MB of memory).
+# poller = Linux container running the lab's snmp.py and poller.py. r1 = Linux router running snmpd, forwarding
+#      between the poller LAN and the web server LAN. web = a web server used to generate traffic through r1.
+# All addresses are private (RFC 1918). The management network uses a ULA (fd00::/8) IPv6 range.
+# graph-* and neo-* labels only shape the draw.io diagram; they change nothing about the lab.
+name: monitoring-snmp-polling
+
+mgmt:
+  network: clab
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: fd00:172:20:20::/64
+
+topology:
+  nodes:
+    poller:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.27.1.10, SNMPv2c poller", graph-icon: host, graph-level: 1, graph-posX: 120, graph-posY: 200}
+      binds:
+        - scripts:/neo/scripts:ro
+        - configs:/neo/configs:ro
+      exec:
+        - bash /neo/scripts/start-poller.sh
+    r1:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.27.1.1, snmpd, Linux router", graph-icon: router, graph-level: 2, graph-posX: 480, graph-posY: 200}
+      binds:
+        - configs:/neo/configs:ro
+        - scripts:/neo/scripts:ro
+      exec:
+        - bash /neo/scripts/start-r1.sh
+    web:
+      kind: linux
+      image: ghcr.io/neo-fundamentals/neo-tools:1.0.0
+      labels: {neo-note: "10.27.2.20, web :80", graph-icon: host, neo-role: server, graph-level: 3, graph-posX: 840, graph-posY: 200}
+      binds:
+        - scripts:/neo/scripts:ro
+      exec:
+        - bash /neo/scripts/start-web.sh
+
+  links:
+    - type: veth  # poller LAN, 10.27.1.0/24 (SNMP is polled on this link)
+      endpoints:
+        - {node: poller, interface: eth1}
+        - {node: r1, interface: eth1}
+      labels: {neo-net: "10.27.1.0/24", neo-capture: "r1:eth1"}
+    - type: veth  # host LAN, 10.27.2.0/24
+      endpoints:
+        - {node: r1, interface: eth2}
+        - {node: web, interface: eth1}
+      labels: {neo-net: "10.27.2.0/24", neo-capture: "r1:eth2"}
